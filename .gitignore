@@ -31,3 +31,5 @@ build/
 
 ### VS Code ###
 .vscode/
+/gen-core/
+gen-core/
