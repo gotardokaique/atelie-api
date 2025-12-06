@@ -1,0 +1,91 @@
+package com.gestao.api.services;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.gestao.api.controllers.DTOs.EstoqueDTO;
+import com.gestao.api.db.DAOController;
+import com.gestao.api.entities.Estoque;
+import com.gestao.api.mappers.EstoqueMapper;
+import com.gestao.api.repositories.EstoqueRepository;
+
+
+@Service
+public class EstoqueService {
+
+    private final EstoqueRepository estoqueRepository;
+    private final EstoqueMapper estoqueMapper;
+    
+    @Autowired
+    private DAOController dao;
+
+    
+    private Estoque estoque;
+
+    public EstoqueService(EstoqueRepository estoqueRepository, EstoqueMapper estoqueMapper) {
+        this.estoqueRepository = estoqueRepository;
+        this.estoqueMapper = estoqueMapper;
+    }
+
+    public void adicionarItemEstoque(EstoqueDTO estoqueDTO) {
+    	estoque = new Estoque();
+    	
+    	estoque.setNomeItem(estoqueDTO.nomeItem());
+    	estoque.setQuantidadeComprada(estoqueDTO.quantidadeComprada());
+    	estoque.setValorGasto(estoqueDTO.valorGasto());
+    	
+    	salvar(estoque);
+    	  
+    }
+
+    @Transactional(readOnly = true)
+    public List<EstoqueDTO> listarTodoEstoque() {
+    	
+    	List<Estoque> estList = dao.select()
+    			.from(Estoque.class)
+    			.list();
+    	
+    	
+        return estoqueMapper.toDtoList(estoques);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<EstoqueDTO> buscarItemEstoquePorId(Long id) {
+        return estoqueRepository.findById(id)
+                                .map(estoqueMapper::toDto);
+    }
+
+    @Transactional
+    public EstoqueDTO atualizarItemEstoque(Long id, EstoqueDTO estoqueDTO) {
+         Estoque itemExistente = estoqueRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Item de Estoque não encontrado com id: " + id));
+
+        itemExistente.setNomeItem(estoqueDTO.nomeItem());
+        itemExistente.setValorGasto(estoqueDTO.valorGasto());
+        itemExistente.setQuantidadeComprada(estoqueDTO.quantidadeComprada());
+
+        Estoque itemAtualizado = estoqueRepository.save(itemExistente);
+        return estoqueMapper.toDto(itemAtualizado);
+    }
+
+     @Transactional
+    public void deletarItemEstoque(Long id) {
+         if (!estoqueRepository.existsById(id)) {
+            throw new RuntimeException("Item de Estoque não encontrado com id: " + id);
+         }
+         estoqueRepository.deleteById(id);
+    }
+     
+    private void salvar (Estoque estoque) {
+    	if (estoque.getId() != null) {
+    		dao.update(estoque);
+    	} else {
+    		dao.insert(estoque);
+    	}
+    } 
+     
+}

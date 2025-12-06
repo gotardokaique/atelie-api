@@ -1,0 +1,18 @@
+package com.gestao.api.controllers.DTOs;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import java.math.BigDecimal;
+
+public record EstoqueDTO(
+    Long id,
+
+    String nomeItem,
+
+    @PositiveOrZero(message = "Valor gasto deve ser zero ou positivo")
+    BigDecimal valorGasto,
+
+    @PositiveOrZero(message = "Quantidade deve ser zero ou positiva")
+    Integer quantidadeComprada
+) {}

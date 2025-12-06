@@ -1,0 +1,34 @@
+package com.api.cotacao.db;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
+@Component
+public class DAOController {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    
+    @Transactional
+    public <T> T insert(T entity) {
+        entityManager.persist(entity);
+        return entity;
+    }
+
+    @Transactional
+    public <T> T update(T entity) {
+        return entityManager.merge(entity);
+    }
+
+    public QueryBuilder select() {
+        return new QueryBuilder(entityManager).select();
+    }
+
+    public QueryBuilder select(String... campos) {
+        return new QueryBuilder(entityManager).select(campos);
+    }
+}

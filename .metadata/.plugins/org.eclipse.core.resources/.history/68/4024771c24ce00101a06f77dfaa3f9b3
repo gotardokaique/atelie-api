@@ -1,0 +1,105 @@
+package com.gestao.api.entities;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import com.gen.core.contracts.UserAccount;
+import com.gen.core.domain.AbstractEntity;
+import com.gen.core.domain.AbstractEntity.Tabela;
+import com.gestao.api.enuns.RoleEnum;
+
+import jakarta.persistence.Entity;
+
+@Entity
+@Tabela(nome = "usuarios")
+public class Usuario extends AbstractEntity implements UserDetails, UserAccount {
+
+    private static final long serialVersionUID = 1L;
+
+    @Coluna(nullable = false)
+    private String nome;
+
+    @Coluna(nullable = false, unique = true)
+    private String email;
+
+    @Coluna(nullable = false)
+    private String senha;
+
+    @Coluna(nullable = false)
+    private RoleEnum role;
+
+    public Usuario() { }
+
+    public Usuario(String nome, String email, String senha, RoleEnum role) {
+        this.nome = nome;
+        this.email = email;
+        this.senha = senha;
+        this.role = role;
+    }
+
+    public String getNome() { return nome; }
+
+    public void setNome(String nome) { this.nome = nome; }
+
+    public String getEmail() { return email; }
+
+    public void setEmail(String email) { this.email = email; }
+
+    public void setSenha(String senha) { this.senha = senha; }
+
+    public RoleEnum getRole() { return role; }
+
+    public void setRole(RoleEnum role) { this.role = role; }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(role.name()));
+    }
+
+    @Override
+    public String getPassword() { return this.senha; }
+
+    @Override
+    public String getUsername() { return this.email; }
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() { return true; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() { return Boolean.TRUE.equals(getAtivo()); }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Usuario usuario)) return false;
+        return Objects.equals(getId(), usuario.getId()) &&
+               Objects.equals(email, usuario.email);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getId(), email);
+    }
+
+    @Override
+    public String toString() {
+        return "Usuario{" +
+                "id=" + getId() +
+                ", nome='" + nome + '\'' +
+                ", email='" + email + '\'' +
+                ", role=" + role +
+                ", ativo=" + getAtivo() +
+                '}';
+    }
+}

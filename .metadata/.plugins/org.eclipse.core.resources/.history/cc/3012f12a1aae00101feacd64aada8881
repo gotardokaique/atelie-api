@@ -1,0 +1,23 @@
+package com.gen.core.bo;
+
+import com.gen.core.context.UserContext;
+import com.gen.core.db.TransactionDB;
+
+public abstract class AbstractBO<BEAN> {
+
+    protected final TransactionDB transactionDB;
+    protected final UserContext userContext;
+
+    protected AbstractBO(TransactionDB transactionDB, UserContext userContext) {
+        this.transactionDB = transactionDB;
+        this.userContext = userContext;
+    }
+
+    public abstract void instanciar();
+
+    public abstract void buscarParaAlterar(Integer id);
+
+    public abstract void preencher();
+
+    public abstract void registrar();
+}

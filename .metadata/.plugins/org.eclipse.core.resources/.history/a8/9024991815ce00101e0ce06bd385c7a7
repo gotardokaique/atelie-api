@@ -1,0 +1,64 @@
+package com.gestao.api.services;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService; // Adicionado para implementar a interface
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
+import com.gestao.api.db.DAOController;
+import com.gestao.api.entities.Usuario;
+import com.gestao.api.enuns.RoleEnum;
+import com.gestao.api.repositories.UsuarioRepository;
+import com.gestao.api.select.Select;
+import com.gestao.api.services.exceptions.BusinessException;
+
+@Service
+public class UsuarioService implements UserDetailsService { // Implementa UserDetailsService
+
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+    
+    @Autowired
+    private DAOController dao;
+
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override // Método da interface UserDetailsService
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        return usuarioRepository.findByEmail(email.toLowerCase().trim()) // Normaliza o email na busca também
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o email: " + email));
+    }
+
+    @Transactional
+    public Usuario registrarNovoUsuario(RegistroUsuarioRequestDTO registroDTO) {
+        String emailNormalizado = registroDTO.email().toLowerCase().trim();
+        
+        if (Select.validarEmailExistente(dao, emailNormalizado)) {
+            throw new BusinessException("Este email já está cadastrado.");
+        }
+
+        // Criação do usuário sem o builder
+        Usuario user = new Usuario();
+        user.setNome(registroDTO.nome().trim());
+        user.setEmail(emailNormalizado);
+        user.setSenha(passwordEncoder.encode(registroDTO.senha()));
+        user.setRole(RoleEnum.ROLE_USER); // Define um papel padrão
+
+        return usuarioRepository.save(user);
+    }
+
+	private void salvar(Usuario user) {
+		if (user.getId() != null) {
+			dao.update(user);
+		} else {
+			dao.insert(user);
+		}
+	}
+}

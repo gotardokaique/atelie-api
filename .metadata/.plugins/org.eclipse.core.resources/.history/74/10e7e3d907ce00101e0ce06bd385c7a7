@@ -1,0 +1,27 @@
+package com.api.cotacao.db;
+
+/**
+ * Enum de operadores para WHERE.
+ */
+public enum Condicao {
+    EQUAL("="),
+    NOT_EQUAL("<>"),
+    GREATER_THAN(">"),
+    LESS_THAN("<"),
+    GREATER_OR_EQUAL(">="),
+    LESS_OR_EQUAL("<="),
+    LIKE("LIKE"),
+    ILIKE("ILIKE"),
+    BETWEEN("BETWEEN"),
+    IN("IN");
+
+    private final String operador;
+
+    Condicao(String operador) {
+        this.operador = operador;
+    }
+
+    public String getOperador() {
+        return operador;
+    }
+}

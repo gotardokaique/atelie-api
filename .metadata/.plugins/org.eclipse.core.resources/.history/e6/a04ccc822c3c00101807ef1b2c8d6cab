@@ -1,0 +1,53 @@
+package com.gestao.api.services; // Ou seu pacote de serviços
+
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO; // Importe o novo DTO
+import com.gestao.api.entities.Usuario;
+import com.gestao.api.enuns.RoleEnum; // Importe seu Enum de Role
+import com.gestao.api.repositories.UsuarioRepository;
+import com.gestao.api.services.exceptions.BusinessException; // Importe sua exceção
+
+// Se este for um novo UsuarioService:
+// import org.springframework.security.core.userdetails.UserDetails;
+// import org.springframework.security.core.userdetails.UserDetailsService;
+// import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
+@Service
+public class UsuarioService { // Ou UserDetailsServiceImpl se você adaptar lá
+
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+         return usuarioRepository.findByEmail(email)
+                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o email: " + email));
+     }
+
+    @Transactional
+    public Usuario registrarNovoUsuario(RegistroUsuarioRequestDTO registroDTO) {
+        if (usuarioRepository.findByEmail(registroDTO.email()).isPresent()) {
+            throw new BusinessException("Este email já está cadastrado.");
+        }
+
+        Usuario novoUsuario = Usuario.builder()
+            .nome(registroDTO.nome().trim())
+            .email(registroDTO.email().toLowerCase().trim())
+            .senha(passwordEncoder.encode(registroDTO.senha())) // Criptografa a senha
+            .role(RoleEnum.ROLE_USER) // Define um papel padrão para novos usuários
+            .build();
+
+        return usuarioRepository.save(novoUsuario);
+    }
+
+    // Outros métodos de serviço de usuário podem vir aqui (ex: buscar, atualizar perfil, etc.)
+}
