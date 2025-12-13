@@ -1,0 +1,45 @@
+# ===================================================================
+# Aplicação
+# ===================================================================
+server.port=8080
+spring.application.name=gestao
+developer=true
+
+
+# ===================================================================
+# Configurações do PostgreSQL
+# ===================================================================
+spring.datasource.url=jdbc:postgresql://localhost:5432/financeiro
+spring.datasource.username=administrador
+spring.datasource.password=financeiro0705
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# ===================================================================
+# Configurações JPA e Hibernate para PostgreSQL
+# ===================================================================
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+# Use 'update' para desenvolvimento. Hibernate tentará criar/atualizar o schema.
+# Para uma primeira execução ou se quiser recriar tudo: 'create' ou 'create-drop'.
+# Em produção, 'validate' ou 'none' são mais seguros (com migrations manuais).
+spring.jpa.hibernate.ddl-auto=create-drop
+# Opcional: Mostrar SQL gerado pelo Hibernate
+# spring.jpa.show-sql=true
+# spring.jpa.properties.hibernate.format_sql=true
+
+# ===================================================================
+# Console H2 (Desabilitado, pois estamos usando PostgreSQL)
+# ===================================================================
+# spring.h2.console.enabled=false
+
+# ===================================================================
+# Configurações JWT (Mantenha as suas)
+# ===================================================================
+api.security.jwt.secret=SeuSegredoSuperSecretoMuitoLongoCodificadoEmBase64AquiNormalmenteTemMaisDe40Caracteres=
+api.security.jwt.expiration-ms=3600000
+
+# ===================================================================
+# Logging (Mantenha o seu)
+# ===================================================================
+logging.level.org.springframework.security=DEBUG
+# logging.level.org.hibernate.SQL=DEBUG
+# logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
