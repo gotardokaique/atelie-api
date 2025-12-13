@@ -1,0 +1,49 @@
+package com.gestao.api.controllers;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.gestao.api.controllers.DTOs.PessoaDTO;
+import com.gestao.api.services.PessoaService;
+
+@RestController
+@RequestMapping("/api/v1/pessoas")
+public class PessoaController {
+
+    private final PessoaService pessoaService;
+
+    public PessoaController(PessoaService pessoaService) {
+        this.pessoaService = pessoaService;
+    }
+
+    @PostMapping
+    public ResponseEntity<Void> criarPessoa(@RequestBody PessoaDTO pessoaDTO) {
+        pessoaService.criarPessoa(pessoaDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PessoaDTO>> listarTodasPessoas() {
+        return ResponseEntity.ok(pessoaService.listarTodasPessoas());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PessoaDTO> buscarPessoaPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(pessoaService.buscarPessoaPorId(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> atualizarPessoa(@PathVariable Long id, @RequestBody PessoaDTO pessoaDTO) {
+        pessoaService.atualizarPessoa(id, pessoaDTO);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletarPessoa(@PathVariable Long id) {
+        pessoaService.deletarPessoa(id);
+        return ResponseEntity.noContent().build();
+    }
+}

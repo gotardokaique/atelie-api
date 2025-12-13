@@ -1,0 +1,8 @@
+# Build
+**/target/ **/build/
+# IDEs
+.metadata/ .settings/ .project .classpath .factorypath .idea/ .vscode/
+# Logs
+*.log
+# Env e chaves
+.env .env.* *.pem *.key *.jks *.p12
