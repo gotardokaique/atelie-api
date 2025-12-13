@@ -58,7 +58,7 @@ public class AuthController extends AbstractController {
     }
 
 	    @MethodMapping(path = "/register", type = HttpMethod.POST)
-	    public ApiResponse<Void> register(RegistroUsuarioRequestDTO dto) {
+	    public ApiResponse<Void> register(@RequestBody RegistroUsuarioRequestDTO dto) {
 	
 	        usuarioService.registrarNovoUsuario(dto);
 	

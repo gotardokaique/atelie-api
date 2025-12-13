@@ -2,19 +2,51 @@ package com.gestao.api.controllers.DTOs;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
+import com.gestao.api.entities.Pessoa;
+import com.gestao.api.entities.Servico;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 
 public record ServicoResponseDTO(
-    Long id,
-    PessoaDTO pessoa, 
-    String descricao,
-    LocalDate dataEntregaPrevista,
-    LocalDate dataCadastro,
-    LocalDate dataFinalizacao,
-    Boolean urgente,
-    BigDecimal valor,
-    StatusServico statusServico,
-    StatusPagamento statusPagamento
-) {}
+        Long id,
+        String descricao,
+        BigDecimal valor,
+        Boolean urgente,
+        StatusServico statusServico,
+        StatusPagamento statusPagamento,
+        LocalDate dataEntregaPrevista,
+        LocalDate dataFinalizacao,
+        LocalDateTime dataCadastro,
+        Long pessoaId,
+        String pessoaNome
+) {
+
+    public static ServicoResponseDTO refactor(Servico servico) {
+        return new ServicoResponseDTO(
+                servico.getId(),
+                servico.getDescricao(),
+                servico.getValor(),
+                servico.isUrgente(),
+                servico.getStatusServico(),
+                servico.getStatusPagamento(),
+                servico.getDataEntregaPrevista(),
+                servico.getDataFinalizacao(),
+                servico.getDataCadastro(),
+                servico.getPessoa().getId(),
+                servico.getPessoa().getNome()
+                
+        );
+    }
+
+    public static List<ServicoResponseDTO> refactor(List<Servico> servicos) {
+        return servicos.stream()
+                .filter(Objects::nonNull)
+                .map(ServicoResponseDTO::refactor)
+                .collect(Collectors.toList());
+    }
+}

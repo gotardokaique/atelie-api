@@ -8,8 +8,9 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
-        "com.gestao.api",   
-        "com.gen.core"      
+        "com.gestao",          // API atual
+        "com.gen.core",        // seu core (filter, utils, dao)
+        "com.gen.common"       // caso use módulos compartilhados
 })
 public class GestaoApplication {
 

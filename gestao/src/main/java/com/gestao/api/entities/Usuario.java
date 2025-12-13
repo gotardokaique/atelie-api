@@ -8,7 +8,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.gen.core.contracts.UserAccount;
 import com.gen.core.domain.AbstractEntity;
 import com.gen.core.domain.AbstractEntity.Tabela;
 import com.gestao.api.enuns.RoleEnum;
@@ -17,7 +16,7 @@ import jakarta.persistence.Entity;
 
 @Entity
 @Tabela(nome = "usuarios")
-public class Usuario extends AbstractEntity implements UserDetails, UserAccount {
+public class Usuario extends AbstractEntity implements UserDetails {
 
     private static final long serialVersionUID = 1L;
 
@@ -42,7 +41,12 @@ public class Usuario extends AbstractEntity implements UserDetails, UserAccount 
         this.role = role;
     }
 
-    public String getNome() { return nome; }
+    
+    public String getSenha() {
+		return senha;
+	}
+
+	public String getNome() { return nome; }
 
     public void setNome(String nome) { this.nome = nome; }
 
@@ -102,21 +106,5 @@ public class Usuario extends AbstractEntity implements UserDetails, UserAccount 
                 '}';
     }
 
-	@Override
-	public String getPasswordHash() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void setPasswordHash(String encoded) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public String getRole() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	
 }

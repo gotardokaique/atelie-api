@@ -1,19 +1,32 @@
 package com.gestao.api.controllers.DTOs;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
+import com.gestao.api.entities.Pessoa;
 
 public record PessoaDTO(
-    Long id,
+        Long id,
+        String nome,
+        String telefone,
+        String medidas
+) {
 
-    @NotBlank(message = "Nome não pode ser vazio")
-    @Size(min = 2, max = 100, message = "Nome deve ter entre 2 e 100 caracteres")
-    String nome,
+    public static PessoaDTO refactor(Pessoa pessoa) {
 
+        return new PessoaDTO(
+                pessoa.getId(),
+                pessoa.getNome(),
+                pessoa.getTelefone(),
+                pessoa.getMedidas()
+        );
+    }
 
-    @NotBlank(message = "Telefone não pode ser vazio")
-    String telefone,
-
-    String medidas
-) {}
+    public static List<PessoaDTO> refactor(List<Pessoa> pessoas) {
+        return pessoas.stream()
+                .filter(Objects::nonNull)
+                .map(PessoaDTO::refactor)
+                .collect(Collectors.toList());
+    }
+}

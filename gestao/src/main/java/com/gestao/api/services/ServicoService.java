@@ -6,9 +6,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,219 +26,347 @@ import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
-import com.gestao.api.mappers.ServicoMapper;
-import com.gestao.api.repositories.PessoaRepository;
-import com.gestao.api.repositories.ServicoRepository;
 import com.gestao.api.services.exceptions.BusinessException;
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
+import com.gen.core.security.exception.NotFoundException;
+
+import jakarta.persistence.NoResultException;
 
 @Service
 public class ServicoService {
 
-	private final ServicoRepository servicoRepository;
-	private final PessoaRepository pessoaRepository;
-	private final ServicoMapper servicoMapper;
-	private static final Logger log = LoggerFactory.getLogger(ServicoService.class);
+    private final DAOController daoController;
+    private static final Logger log = LoggerFactory.getLogger(ServicoService.class);
 
-	private static final StatusServico finalizado = StatusServico.FINALIZADO;
+    private static final StatusServico FINALIZADO = StatusServico.FINALIZADO;
 
-	public ServicoService(ServicoRepository servicoRepository, PessoaRepository pessoaRepository,
-			ServicoMapper servicoMapper) {
-		this.servicoRepository = servicoRepository;
-		this.pessoaRepository = pessoaRepository;
-		this.servicoMapper = servicoMapper;
-	}
+    public ServicoService(DAOController daoController) {
+        this.daoController = daoController;
+    }
 
-	@Transactional
-	public ServicoResponseDTO criarServico(ServicoRequestDTO requestDTO) {
-		Pessoa pessoa = null;
-		if (requestDTO.pessoaId() != null) {
-			pessoa = pessoaRepository.findById(requestDTO.pessoaId())
-					.orElseThrow(() -> new RuntimeException("Pessoa não encontrada com id: " + requestDTO.pessoaId()));
-		}
+    // ===================== CRIAR =====================
 
-		Servico servico = servicoMapper.toEntity(requestDTO);
-		servico.setPessoa(pessoa);
-		servico.setUrgente(requestDTO.urgente() != null && requestDTO.urgente());
+    @Transactional
+    public void criarServico(ServicoRequestDTO requestDTO) {
+        Pessoa pessoa = null;
 
-		if (servico.isUrgente()) {
-			servico.setStatusServico(StatusServico.URGENTE);
-		} else {
-			servico.setStatusServico(StatusServico.PENDENTE);
-		}
+        if (requestDTO.pessoaId() != null) {
+            pessoa = buscarPessoaById(requestDTO.pessoaId());
+        }
 
-		if (servico.getDataEntregaPrevista() != null && servico.getDataEntregaPrevista().isBefore(LocalDate.now())) {
-			throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
-		}
-		servico.setStatusPagamento(StatusPagamento.PENDENTE);
+        Servico servico = new Servico();
+        servico.setPessoa(pessoa);
+        servico.setDescricao(requestDTO.descricao());
+        servico.setDataEntregaPrevista(requestDTO.dataEntregaPrevista());
+        servico.setValor(requestDTO.valor());
+        servico.setUrgente(Boolean.TRUE.equals(requestDTO.urgente()));
 
-		Servico servicoSalvo = servicoRepository.save(servico);
-		return servicoMapper.toResponseDto(servicoSalvo);
-	}
+        if (servico.getDataEntregaPrevista() != null
+                && servico.getDataEntregaPrevista().isBefore(LocalDate.now())) {
+            throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
+        }
 
-	 @Transactional(readOnly = true)
-	    public List<ServicoResponseDTO> listarServicosEmAberto() {
-	        List<StatusServico> openStatuses = Arrays.asList( 
-	            StatusServico.PENDENTE,
-	            StatusServico.EM_ANDAMENTO,
-	            StatusServico.URGENTE
-	        );
-	        List<Servico> servicos = servicoRepository.findOpenServicesWithPriority(openStatuses);
-	        return servicoMapper.toResponseDtoList(servicos);
-	    }
+        if (servico.isUrgente()) {
+            servico.setStatusServico(StatusServico.URGENTE);
+        } else {
+            servico.setStatusServico(StatusServico.PENDENTE);
+        }
 
-	@Transactional(readOnly = true)
-	public List<ServicoResponseDTO> listarServicosFinalizados() {
-		List<Servico> servicos = servicoRepository.findByStatusServicoOrderByDataCadastroDesc(StatusServico.FINALIZADO);
-		return servicoMapper.toResponseDtoList(servicos);
-	}
+        servico.setStatusPagamento(StatusPagamento.PENDENTE);
 
-	@Transactional(readOnly = true)
-	public Optional<ServicoResponseDTO> buscarServicoPorId(Long id) {
-		return servicoRepository.findById(id).map(servicoMapper::toResponseDto);
-	}
+        salvar(servico);
+    }
 
-	@Transactional
-	public ServicoResponseDTO atualizarStatusServico(Long id, StatusServico novoStatus) throws Exception {
-		Servico servico = servicoRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Serviço não encontrado com id: " + id));
+    // ===================== LISTAR =====================
 
-		servico.setStatusServico(novoStatus);
-		if (servico.getStatusServico().equals(finalizado)) {
-			servico.setDataFinalizacao(LocalDate.now());
-		}
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> listarServicosEmAberto() {
 
-		Servico servicoAtualizado = servicoRepository.save(servico);
-		System.out.println(servico);
+    	List<Servico> servicos;
+    	try {
+    		servicos = daoController
+    				.select()
+    				.from(Servico.class)
+    				.join("pessoa")
+    				.where("statusServico", Condicao.IN,
+    						StatusServico.PENDENTE,
+    						StatusServico.EM_ANDAMENTO,
+    						StatusServico.URGENTE)
+    				.orderBy("dataCadastro", false)
+    				.list();
+    		
+    	} catch (NotFoundException not) {
+    		servicos= new ArrayList<Servico>();
+    	}
 
-		return servicoMapper.toResponseDto(servicoAtualizado);
-	}
+        return ServicoResponseDTO.refactor(servicos);
+    }
 
-	@Transactional
-	public ServicoResponseDTO atualizarStatusPagamento(Long id, StatusPagamento novoStatus) {
-		Servico servico = servicoRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Serviço não encontrado com id: " + id));
-		servico.setStatusPagamento(novoStatus);
-		Servico servicoAtualizado = servicoRepository.save(servico);
-		return servicoMapper.toResponseDto(servicoAtualizado);
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> listarServicosFinalizados() {
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("pessoa")
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .orderBy("dataCadastro", false)
+                .list();
 
-	}
+        return ServicoResponseDTO.refactor(servicos);
+    }
 
-	@Transactional
-	public ServicoResponseDTO atualizarServicoCompleto(Long id, ServicoRequestDTO requestDTO) {
-		Servico servicoExistente = servicoRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Serviço não encontrado com id: " + id));
+    // ===================== BUSCAR POR ID =====================
 
-		Pessoa pessoa = null;
-		if (requestDTO.pessoaId() != null) {
-			pessoa = pessoaRepository.findById(requestDTO.pessoaId())
-					.orElseThrow(() -> new RuntimeException("Pessoa não encontrada com id: " + requestDTO.pessoaId()));
-		}
+    @Transactional(readOnly = true)
+    public ServicoResponseDTO buscarServicoPorId(Long id) {
+        Servico servico;
+        try {
+            servico = daoController
+                    .select()
+                    .from(Servico.class)
+                    .join("pessoa")
+                    .id(id);
 
-		servicoExistente.setPessoa(pessoa);
-		servicoExistente.setDescricao(requestDTO.descricao());
-		servicoExistente.setDataEntregaPrevista(requestDTO.dataEntregaPrevista());
-		servicoExistente.setValor(requestDTO.valor());
-		servicoExistente.setUrgente(requestDTO.urgente() != null && requestDTO.urgente());
+            return ServicoResponseDTO.refactor(servico);
+        } catch (NoResultException e) {
+            servico = new Servico();
+            return ServicoResponseDTO.refactor(servico);
+        }
+    }
 
-		if (servicoExistente.getStatusServico().equals(finalizado)) {
+    // ===================== ATUALIZAR STATUS SERVIÇO =====================
 
-		} else {
-			if (servicoExistente.isUrgente()) {
-				servicoExistente.setStatusServico(StatusServico.URGENTE);
-			} else {
-				servicoExistente.setStatusServico(StatusServico.PENDENTE);
-			}
-		}
+    @Transactional
+    public void atualizarStatusServico(Long id, StatusServico novoStatus) {
+        Servico servico = buscarServicoById(id);
 
-		if (servicoExistente.getDataEntregaPrevista() != null
-				&& servicoExistente.getDataEntregaPrevista().isBefore(LocalDate.now())) {
-			throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
-		}
+        servico.setStatusServico(novoStatus);
+        if (servico.getStatusServico().equals(FINALIZADO)) {
+            servico.setDataFinalizacao(LocalDate.now());
+        }
 
-		Servico servicoAtualizado = servicoRepository.save(servicoExistente);
-		return servicoMapper.toResponseDto(servicoAtualizado);
-	}
+        salvar(servico);
+    }
 
-	@Transactional
-	public void deletarServico(Long id) {
-		if (!servicoRepository.existsById(id)) {
-			throw new RuntimeException("Serviço não encontrado com id: " + id);
-		}
-		servicoRepository.deleteById(id);
-	}
+    // ===================== ATUALIZAR STATUS PAGAMENTO =====================
 
-	@Transactional(readOnly = true)
-	public BigDecimal calcularSomaFinalizadosMesAtual() {
-		YearMonth mesAtual = YearMonth.now();
-		LocalDate dataInicio = mesAtual.atDay(1);
-		LocalDate dataFim = mesAtual.atEndOfMonth();
+    @Transactional
+    public void atualizarStatusPagamento(Long id, StatusPagamento novoStatus) {
+        Servico servico = buscarServicoById(id);
 
-		return servicoRepository.sumValorByStatusAndDataFinalizacaoBetween(StatusServico.FINALIZADO, dataInicio,
-				dataFim);
-	}
+        servico.setStatusPagamento(novoStatus);
 
-	@Transactional(readOnly = true)
-	public BigDecimal calcularSomaFinalizadosSemanaAtual() {
-		LocalDate hoje = LocalDate.now();
-		LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-		LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+        salvar(servico);
+    }
 
-		return servicoRepository.sumValorByStatusAndDataFinalizacaoBetween(StatusServico.FINALIZADO, inicioSemana,
-				fimSemana);
-	}
+    // ===================== ATUALIZAR SERVIÇO COMPLETO =====================
 
-	@Transactional(readOnly = true)
-	public DashboardStatsDTO getDashboardStats() {
-		long pendenteCount = servicoRepository.countByStatusServico(StatusServico.PENDENTE);
-		long emAndamentoCount = servicoRepository.countByStatusServico(StatusServico.EM_ANDAMENTO);
-		long urgenteCount = servicoRepository.countByStatusServico(StatusServico.URGENTE);
+    @Transactional
+    public void atualizarServicoCompleto(Long id, ServicoRequestDTO requestDTO) {
+        Servico servicoExistente = buscarServicoById(id);
 
-		LocalDate hoje = LocalDate.now();
-		LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-		LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+        Pessoa pessoa = null;
+        if (requestDTO.pessoaId() != null) {
+            pessoa = buscarPessoaById(requestDTO.pessoaId());
+        }
 
-		long finalizadosSemanaCount = servicoRepository
-				.countByStatusServicoAndDataFinalizacaoBetween(StatusServico.FINALIZADO, inicioSemana, fimSemana);
+        servicoExistente.setPessoa(pessoa);
+        servicoExistente.setDescricao(requestDTO.descricao());
+        servicoExistente.setDataEntregaPrevista(requestDTO.dataEntregaPrevista());
+        servicoExistente.setValor(requestDTO.valor());
+        servicoExistente.setUrgente(Boolean.TRUE.equals(requestDTO.urgente()));
 
-		return new DashboardStatsDTO(pendenteCount, emAndamentoCount, urgenteCount, finalizadosSemanaCount);
-	}
+        if (!servicoExistente.getStatusServico().equals(FINALIZADO)) {
+            if (servicoExistente.isUrgente()) {
+                servicoExistente.setStatusServico(StatusServico.URGENTE);
+            } else {
+                servicoExistente.setStatusServico(StatusServico.PENDENTE);
+            }
+        }
 
-	@Transactional(readOnly = true)
-	public ResumoFinanceiroDTO getResumoFinanceiroMesAtual() {
-		YearMonth mesAtual = YearMonth.now();
-		LocalDate dataInicio = mesAtual.atDay(1);
-		LocalDate dataFim = mesAtual.atEndOfMonth();
-		StatusServico status = StatusServico.FINALIZADO;
+        if (servicoExistente.getDataEntregaPrevista() != null
+                && servicoExistente.getDataEntregaPrevista().isBefore(LocalDate.now())) {
+            throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
+        }
 
-		BigDecimal soma = servicoRepository.sumValorByStatusAndDataFinalizacaoBetween(status, dataInicio, dataFim);
-		long contagem = servicoRepository.countByStatusServicoAndDataFinalizacaoBetween(status, dataInicio, dataFim);
+        salvar(servicoExistente);
+    }
 
-		return new ResumoFinanceiroDTO(soma, contagem);
-	}
+    // ===================== DELETAR =====================
 
-	@Transactional(readOnly = true)
-	public ResumoFinanceiroDTO getResumoFinanceiroSemanaAtual() {
-		LocalDate hoje = LocalDate.now();
-		LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-		LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
-		StatusServico status = StatusServico.FINALIZADO;
+    @Transactional
+    public void deletarServico(Long id) {
+        Servico servicoExistente = buscarServicoById(id);
+        daoController.delete(servicoExistente);
+    }
 
-		BigDecimal soma = servicoRepository.sumValorByStatusAndDataFinalizacaoBetween(status, inicioSemana, fimSemana);
-		long contagem = servicoRepository.countByStatusServicoAndDataFinalizacaoBetween(status, inicioSemana,
-				fimSemana);
+    // ===================== DASHBOARD / RESUMOS =====================
 
-		return new ResumoFinanceiroDTO(soma, contagem);
-	}
-	
+    @Transactional(readOnly = true)
+    public BigDecimal calcularSomaFinalizadosMesAtual() {
+        YearMonth mesAtual = YearMonth.now();
+        LocalDate dataInicio = mesAtual.atDay(1);
+        LocalDate dataFim = mesAtual.atEndOfMonth();
+
+        List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
+        return somarValor(servicos);
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal calcularSomaFinalizadosSemanaAtual() {
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+
+        List<Servico> servicos = buscarServicosFinalizadosEntre(inicioSemana, fimSemana);
+        return somarValor(servicos);
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardStatsDTO getDashboardStats() {
+
+        long pendenteCount = countByStatus(StatusServico.PENDENTE);
+        long emAndamentoCount = countByStatus(StatusServico.EM_ANDAMENTO);
+        long urgenteCount = countByStatus(StatusServico.URGENTE);
+
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+
+        long finalizadosSemanaCount = countFinalizadosEntre(inicioSemana, fimSemana);
+
+        return new DashboardStatsDTO(
+                pendenteCount,
+                emAndamentoCount,
+                urgenteCount,
+                finalizadosSemanaCount
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ResumoFinanceiroDTO getResumoFinanceiroMesAtual() {
+        YearMonth mesAtual = YearMonth.now();
+        LocalDate dataInicio = mesAtual.atDay(1);
+        LocalDate dataFim = mesAtual.atEndOfMonth();
+
+        List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
+
+        BigDecimal soma = somarValor(servicos);
+        long contagem = servicos.size();
+
+        return new ResumoFinanceiroDTO(soma, contagem);
+    }
+
+    @Transactional(readOnly = true)
+    public ResumoFinanceiroDTO getResumoFinanceiroSemanaAtual() {
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+
+        List<Servico> servicos = buscarServicosFinalizadosEntre(inicioSemana, fimSemana);
+
+        BigDecimal soma = somarValor(servicos);
+        long contagem = servicos.size();
+
+        return new ResumoFinanceiroDTO(soma, contagem);
+    }
+
     @Transactional(readOnly = true)
     public List<HorarioPicoDTO> getHorariosDePicoMes(int ano, int mes) {
         YearMonth anoMes = YearMonth.of(ano, mes);
-        LocalDateTime dataInicioMes = anoMes.atDay(1).atStartOfDay(); 
-        LocalDateTime dataFimMesMaisUmDia = anoMes.plusMonths(1).atDay(1).atStartOfDay(); 
+        LocalDateTime dataInicioMes = anoMes.atDay(1).atStartOfDay();
+        LocalDateTime dataFimMesMaisUmDia = anoMes.plusMonths(1).atDay(1).atStartOfDay();
 
-        log.info("Buscando horários de pico para o mês: {}/{} ({} a {})", mes, ano, dataInicioMes, dataFimMesMaisUmDia);
+        log.info("Buscando horários de pico para o mês: {}/{} ({} a {})",
+                mes, ano, dataInicioMes, dataFimMesMaisUmDia);
 
-        return servicoRepository.findHorariosDePicoPorMes(dataInicioMes, dataFimMesMaisUmDia);
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .where("dataCadastro", Condicao.BETWEEN, dataInicioMes, dataFimMesMaisUmDia)
+                .list();
+
+        var contagemPorHora = servicos.stream()
+                .filter(s -> s.getDataCadastro() != null)
+                .collect(Collectors.groupingBy(
+                        s -> s.getDataCadastro().getHour(),
+                        Collectors.counting()
+                ));
+
+        return contagemPorHora.entrySet().stream()
+                .map(e -> new HorarioPicoDTO(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparing(HorarioPicoDTO::hora))
+                .toList();
     }
 
+    // ===================== HELPERS PRIVADOS =====================
+
+    private Servico buscarServicoById(Long id) {
+        try {
+            return daoController
+                    .select()
+                    .from(Servico.class)
+                    .id(id);
+        } catch (NoResultException e) {
+            throw new RuntimeException("Serviço não encontrado com id: " + id);
+        }
+    }
+
+    private Pessoa buscarPessoaById(Long id) {
+    	Pessoa pes;
+    	
+        try {
+            pes = daoController
+                    .select()
+                    .from(Pessoa.class)
+                    .id(id);
+            
+        } catch (Exception e) {
+            pes = new Pessoa();
+        }
+        
+        return pes;
+    }
+
+    private List<Servico> buscarServicosFinalizadosEntre(LocalDate inicio, LocalDate fim) {
+        return daoController
+                .select()
+                .from(Servico.class)
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("dataFinalizacao", Condicao.BETWEEN, inicio, fim)
+                .list();
+    }
+
+    private long countByStatus(StatusServico status) {
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .where("statusServico", Condicao.EQUAL, status)
+                .list();
+
+        return servicos.size();
+    }
+
+    private long countFinalizadosEntre(LocalDate inicio, LocalDate fim) {
+        return buscarServicosFinalizadosEntre(inicio, fim).size();
+    }
+
+    private BigDecimal somarValor(List<Servico> servicos) {
+        return servicos.stream()
+                .map(Servico::getValor)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // ===================== SALVAR (INSERT / UPDATE) =====================
+
+    @Transactional
+    public Servico salvar(Servico servico) {
+        if (servico.getId() != null) {
+            return daoController.update(servico);
+        } else {
+            return daoController.insert(servico);
+        }
+    }
 }

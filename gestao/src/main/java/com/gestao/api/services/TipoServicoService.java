@@ -1,62 +1,103 @@
 package com.gestao.api.services;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestao.api.controllers.DTOs.TipoServicoDTO;
 import com.gestao.api.entities.TipoServico;
-import com.gestao.api.mappers.TipoServicoMapper;
-import com.gestao.api.repositories.TipoServicoRepository;
+import com.gestao.api.services.exceptions.ResourceNotFoundException;
+import com.gen.core.db.DAOController;
+
+import jakarta.persistence.NoResultException;
 
 @Service
 public class TipoServicoService {
 
-    private final TipoServicoRepository tipoServicoRepository;
-    private final TipoServicoMapper tipoServicoMapper;
+    private final DAOController daoController;
 
-    public TipoServicoService(TipoServicoRepository tipoServicoRepository, TipoServicoMapper tipoServicoMapper) {
-        this.tipoServicoRepository = tipoServicoRepository;
-        this.tipoServicoMapper = tipoServicoMapper;
+    public TipoServicoService(DAOController daoController) {
+        this.daoController = daoController;
     }
+
+    // ===================== CRIAR =====================
 
     @Transactional
-    public TipoServicoDTO criarTipoServico(TipoServicoDTO tipoServicoDTO) {
-        TipoServico tipoServico = tipoServicoMapper.toEntity(tipoServicoDTO);
-        TipoServico tipoServicoSalvo = tipoServicoRepository.save(tipoServico);
-        return tipoServicoMapper.toDto(tipoServicoSalvo);
+    public void criarTipoServico(TipoServicoDTO dto) {
+        TipoServico tipo = new TipoServico();
+        tipo.setNome(dto.nome());
+        salvar(tipo);
     }
+
+    // ===================== LISTAR =====================
 
     @Transactional(readOnly = true)
     public List<TipoServicoDTO> listarTodosTiposServico() {
-        List<TipoServico> tiposServico = tipoServicoRepository.findAll();
-        return tipoServicoMapper.toDtoList(tiposServico);
+        List<TipoServico> tipos = daoController
+                .select()
+                .from(TipoServico.class)
+                .orderBy("nome", true)
+                .list();
+
+        return TipoServicoDTO.refactor(tipos);
     }
+
+    // ===================== BUSCAR POR ID =====================
 
     @Transactional(readOnly = true)
-    public Optional<TipoServicoDTO> buscarTipoServicoPorId(Long id) {
-        return tipoServicoRepository.findById(id)
-                                    .map(tipoServicoMapper::toDto);
+    public TipoServicoDTO buscarTipoServicoPorId(Long id) {
+        TipoServico tipo;
+        try {
+            tipo = daoController
+                    .select()
+                    .from(TipoServico.class)
+                    .id(id);
+            return TipoServicoDTO.refactor(tipo);
+        } catch (NoResultException e) {
+            tipo = new TipoServico();
+            return TipoServicoDTO.refactor(tipo);
+        }
     }
+
+    // ===================== ATUALIZAR =====================
 
     @Transactional
-    public TipoServicoDTO atualizarTipoServico(Long id, TipoServicoDTO tipoServicoDTO) {
-        TipoServico tipoExistente = tipoServicoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Tipo de Serviço não encontrado com id: " + id));
-
-        tipoExistente.setNome(tipoServicoDTO.nome());
-
-        TipoServico tipoAtualizado = tipoServicoRepository.save(tipoExistente);
-        return tipoServicoMapper.toDto(tipoAtualizado);
+    public void atualizarTipoServico(Long id, TipoServicoDTO dto) {
+        TipoServico tipoExistente = buscarTipoServicoById(id);
+        tipoExistente.setNome(dto.nome());
+        salvar(tipoExistente);
     }
+
+    // ===================== DELETAR =====================
 
     @Transactional
     public void deletarTipoServico(Long id) {
-         if (!tipoServicoRepository.existsById(id)) {
-            throw new RuntimeException("Tipo de Serviço não encontrado com id: " + id);
-         }
-         tipoServicoRepository.deleteById(id);
+        TipoServico tipo = buscarTipoServicoById(id);
+        daoController.delete(tipo);
+    }
+
+    // ===================== HELPERS PRIVADOS =====================
+
+    private TipoServico buscarTipoServicoById(Long id) {
+        try {
+            return daoController
+                    .select()
+                    .from(TipoServico.class)
+                    .id(id);
+        } catch (NoResultException e) {
+            throw new ResourceNotFoundException("Tipo de Serviço não encontrado com id: " + id);
+        }
+    }
+
+    // ===================== SALVAR =====================
+
+    @Transactional
+    public TipoServico salvar(TipoServico tipo) {
+        if (tipo.getId() != null) {
+            return daoController.update(tipo);
+        } else {
+            return daoController.insert(tipo);
+        }
     }
 }

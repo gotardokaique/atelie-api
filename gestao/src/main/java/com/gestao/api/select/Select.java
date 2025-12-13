@@ -15,7 +15,7 @@ public class Select {
 					.one();
 
 			return true;
-		} catch (NotFoundException not) {
+		} catch (Exception not) {
 		}
 
 		return false;

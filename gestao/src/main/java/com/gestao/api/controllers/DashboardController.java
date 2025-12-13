@@ -1,23 +1,24 @@
 package com.gestao.api.controllers;
 
-import com.gestao.api.controllers.DTOs.DashboardStatsDTO; 
-import com.gestao.api.services.ServicoService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
-@RestController
-@RequestMapping("/api/v1/dashboard")
-public class DashboardController {
+import com.gen.core.api.AbstractController;
+import com.gen.core.api.EndpointMapping;
+import com.gen.core.api.MethodMapping;
+import com.gen.core.api.HttpMethod;
+import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
+import com.gestao.api.services.ServicoService;
 
-    private final ServicoService servicoService; 
+@EndpointMapping("/api/v1/dashboard")
+public class DashboardController extends AbstractController {
 
-    public DashboardController(ServicoService servicoService) { 
+    private final ServicoService servicoService;
+
+    public DashboardController(ServicoService servicoService) {
         this.servicoService = servicoService;
     }
 
-    @GetMapping("/stats")
+    @MethodMapping(path = "/stats", type = HttpMethod.GET)
     public ResponseEntity<DashboardStatsDTO> getStats() {
         DashboardStatsDTO statsDto = servicoService.getDashboardStats();
         return ResponseEntity.ok(statsDto);

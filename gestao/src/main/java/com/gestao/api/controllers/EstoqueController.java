@@ -2,81 +2,78 @@ package com.gestao.api.controllers;
 
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+
+import com.gen.core.api.AbstractController;
+import com.gen.core.api.EndpointMapping;
+import com.gen.core.api.MethodMapping;
+import com.gen.core.api.HttpMethod;
 
 import com.gestao.api.controllers.DTOs.EstoqueDTO;
 import com.gestao.api.services.EstoqueService;
 
-import jakarta.validation.Valid;
-
-@RestController
-@RequestMapping("/api/v1/estoque")
-public class EstoqueController {
+@EndpointMapping("/api/v1/estoque")
+public class EstoqueController extends AbstractController {
 
     private final EstoqueService estoqueService;
 
-     public EstoqueController(EstoqueService estoqueService) {
+    public EstoqueController(EstoqueService estoqueService) {
         this.estoqueService = estoqueService;
     }
 
-    @PostMapping
-    public ResponseEntity<String> adicionarItemEstoque(@Valid @RequestBody EstoqueDTO estoqueDTO) {
-         estoqueService.adicionarItemEstoque(estoqueDTO);
-         
-        return ResponseEntity.ok().body("Item adicionado com sucesso!");
+    // =====================================================================
+    // CREATE
+    // =====================================================================
+    @MethodMapping(path = "", type = HttpMethod.POST)
+    public void adicionarItemEstoque(EstoqueDTO estoqueDTO) {
+        estoqueService.adicionarItemEstoque(estoqueDTO);
+        setMessageSuccess("Item adicionado com sucesso!");
     }
 
-    @GetMapping
+    // =====================================================================
+    // READ ALL
+    // =====================================================================
+    @MethodMapping(path = "", type = HttpMethod.GET)
     public ResponseEntity<List<EstoqueDTO>> listarTodoEstoque() {
-         List<EstoqueDTO> estoque = estoqueService.listarTodoEstoque();
-         return ResponseEntity.ok(estoque);
+        List<EstoqueDTO> estoque = estoqueService.listarTodoEstoque();
+        return ResponseEntity.ok(estoque);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<EstoqueDTO> buscarItemEstoquePorId(@PathVariable Long id) {
+    // =====================================================================
+    // READ BY ID
+    // =====================================================================
+    @MethodMapping(path = "/{id}", type = HttpMethod.GET)
+    public ResponseEntity<EstoqueDTO> buscarItemEstoquePorId(Long id) {
 
         EstoqueDTO dto = estoqueService.buscarItemEstoquePorId(id);
-
         if (dto == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Item de estoque com ID " + id + " não foi encontrado."
-            );
+            throwValidationError("Item de estoque com ID " + id + " não encontrado.");
         }
 
         return ResponseEntity.ok(dto);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<String> atualizarItemEstoque(
-            @PathVariable Long id,
-            @Valid @RequestBody EstoqueDTO estoqueDTO) {
+    // =====================================================================
+    // UPDATE
+    // =====================================================================
+    @MethodMapping(path = "/{id}", type = HttpMethod.PUT)
+    public void atualizarItemEstoque(Long id, EstoqueDTO estoqueDTO) {
 
         boolean atualizado = estoqueService.atualizarItemEstoque(id, estoqueDTO);
 
-        if (atualizado) {
-            return ResponseEntity.ok("Item atualizado com sucesso!");
+        if (!atualizado) {
+            throwValidationError("Item de estoque com ID " + id + " não encontrado.");
         }
 
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body("Item de estoque com ID " + id + " não foi encontrado.");
+        setMessageSuccess("Item atualizado com sucesso!");
     }
 
-
-     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deletarItemEstoque(@PathVariable Long id) {
-         estoqueService.deletarItemEstoque(id);
-         return ResponseEntity.ok("item removido com sucesso!");
+    // =====================================================================
+    // DELETE
+    // =====================================================================
+    @MethodMapping(path = "/{id}", type = HttpMethod.DELETE)
+    public void deletarItemEstoque(Long id) {
+        estoqueService.deletarItemEstoque(id);
+        setMessageSuccess("Item removido com sucesso!");
     }
 }

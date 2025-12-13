@@ -9,126 +9,160 @@ import org.springframework.util.StringUtils;
 
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.entities.Pessoa;
-import com.gestao.api.mappers.PessoaMapper;
-import com.gestao.api.repositories.PessoaRepository;
 import com.gestao.api.services.exceptions.BusinessException;
-import com.gestao.api.services.exceptions.ResourceNotFoundException; 
+import com.gestao.api.services.exceptions.ResourceNotFoundException;
+import com.gen.core.db.DAOController;
+import com.gen.core.security.exception.NotFoundException;
+
+import jakarta.persistence.NoResultException;
 
 @Service
 public class PessoaService {
 
-	private final PessoaRepository pessoaRepository;
-	private final PessoaMapper pessoaMapper;
+    private final DAOController daoController;
 
-	public PessoaService(PessoaRepository pessoaRepository, PessoaMapper pessoaMapper) {
-		this.pessoaRepository = pessoaRepository;
-		this.pessoaMapper = pessoaMapper;
-	}
+    public PessoaService(DAOController daoController) {
+        this.daoController = daoController;
+    }
 
-	@Transactional
-	public PessoaDTO criarPessoa(PessoaDTO pessoaDTO) {
-		String nomeLimpo = null;
-		if (pessoaDTO.nome() != null) {
-			nomeLimpo = pessoaDTO.nome().trim();
-		}
+    // ===================== CRIAR =====================
 
-		String telefoneLimpo = null;
-		if (pessoaDTO.telefone() != null) {
-			telefoneLimpo = pessoaDTO.telefone().replaceAll("[^0-9]", "");
-		}
+    @Transactional
+    public void criarPessoa(PessoaDTO dto) {
 
-		String medidasLimpas = null;
-		if (pessoaDTO.medidas() != null) {
-			medidasLimpas = pessoaDTO.medidas().trim();
-		}
+        String nomeLimpo = limparNome(dto.nome());
+        String telefoneLimpo = limparTelefone(dto.telefone());
+        String medidasLimpas = limparMedidas(dto.medidas());
 
-		if (pessoaDTO.nome() != null && !StringUtils.hasText(nomeLimpo)) {
-			throw new BusinessException("O nome da pessoa não pode ser composto apenas por espaços.");
-		}
+        validarDadosPessoa(nomeLimpo, telefoneLimpo);
 
-		if (!StringUtils.hasText(telefoneLimpo)) {
-			throw new BusinessException("Telefone é obrigatório.");
-		}
-		if (telefoneLimpo != null && !telefoneLimpo.matches("^[0-9]+$")) {
-			throw new BusinessException("Telefone deve conter apenas números.");
-		}
-		if (telefoneLimpo != null && (telefoneLimpo.length() < 8 || telefoneLimpo.length() > 15)) {
-			throw new BusinessException("Telefone deve ter entre 8 e 15 dígitos.");
-		}
+        Pessoa pessoa = new Pessoa();
+        pessoa.setNome(nomeLimpo);
+        pessoa.setTelefone(telefoneLimpo);
+        pessoa.setMedidas(medidasLimpas);
 
-		PessoaDTO dtoParaMapear = new PessoaDTO(
-            null,
-            nomeLimpo,
-            telefoneLimpo,
-            medidasLimpas
-        );
+        salvar(pessoa);
 
-		Pessoa pessoa = pessoaMapper.toEntity(dtoParaMapear);
+    }
 
-		Pessoa pessoaSalva = pessoaRepository.save(pessoa);
+    // ===================== LISTAR =====================
 
-		return pessoaMapper.toDto(pessoaSalva);
-	}
+    @Transactional(readOnly = true)
+    public List<PessoaDTO> listarTodasPessoas() {
+        List<Pessoa> pessoas = daoController
+                .select()
+                .from(Pessoa.class)
+                .list();
 
-	@Transactional(readOnly = true)
-	public List<PessoaDTO> listarTodasPessoas() {
-		List<Pessoa> pessoas = pessoaRepository.findAll();
-		return pessoaMapper.toDtoList(pessoas);
-	}
+        return PessoaDTO.refactor(pessoas);
+    }
 
-	@Transactional(readOnly = true)
-	public Optional<PessoaDTO> buscarPessoaPorId(Long id) {
-		return pessoaRepository.findById(id)
-            .map(pessoaMapper::toDto);
-	}
+    // ===================== BUSCAR POR ID =====================
 
-	@Transactional
-	public PessoaDTO atualizarPessoa(Long id, PessoaDTO pessoaDTO) {
-		Pessoa pessoaExistente = pessoaRepository.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("Pessoa não encontrada com id: " + id));
+    @Transactional(readOnly = true)
+    public PessoaDTO buscarPessoaPorId(Long id) {
+    	Pessoa pessoa;
+        try {
+            pessoa = daoController
+                    .select()
+                    .from(Pessoa.class)
+                    .id(id);
 
-		String nomeLimpo = null;
-		if (pessoaDTO.nome() != null) {
-			nomeLimpo = pessoaDTO.nome().trim();
-		}
+            return PessoaDTO.refactor(pessoa);
+        } catch (NoResultException e) {
+        	pessoa = new Pessoa();
+        	
+            return PessoaDTO.refactor(pessoa);
+        }
+    }
 
-		String telefoneLimpo = null;
-		if (pessoaDTO.telefone() != null) {
-			telefoneLimpo = pessoaDTO.telefone().replaceAll("[^0-9]", "");
-		}
+    // ===================== ATUALIZAR =====================
 
-		String medidasLimpas = null;
-		if (pessoaDTO.medidas() != null) {
-			medidasLimpas = pessoaDTO.medidas().trim();
-		}
+    @Transactional
+    public void atualizarPessoa(Long id, PessoaDTO dto) {
 
-		if (pessoaDTO.nome() != null && !StringUtils.hasText(nomeLimpo)) {
-			throw new BusinessException("O nome da pessoa não pode ser composto apenas por espaços.");
-		}
+        Pessoa pessoaExistente = buscarPessoaById(id);
 
-		if (!StringUtils.hasText(telefoneLimpo)) {
-			throw new BusinessException("Telefone é obrigatório.");
-		}
-		if (telefoneLimpo != null && !telefoneLimpo.matches("^[0-9]+$")) {
-			throw new BusinessException("Telefone deve conter apenas números.");
-		}
-		if (telefoneLimpo != null && (telefoneLimpo.length() < 8 || telefoneLimpo.length() > 15)) {
-			throw new BusinessException("Telefone deve ter entre 8 e 15 dígitos.");
-		}
+        String nomeLimpo = limparNome(dto.nome());
+        String telefoneLimpo = limparTelefone(dto.telefone());
+        String medidasLimpas = limparMedidas(dto.medidas());
 
+        validarDadosPessoa(nomeLimpo, telefoneLimpo);
 
-		pessoaExistente.setTelefone(telefoneLimpo);
-		pessoaExistente.setMedidas(medidasLimpas);
+        if (nomeLimpo != null) {
+            pessoaExistente.setNome(nomeLimpo);
+        }
 
-		Pessoa pessoaAtualizada = pessoaRepository.save(pessoaExistente);
-		return pessoaMapper.toDto(pessoaAtualizada);
-	}
+        pessoaExistente.setTelefone(telefoneLimpo);
+        pessoaExistente.setMedidas(medidasLimpas);
 
-	@Transactional
-	public void deletarPessoa(Long id) {
-		if (!pessoaRepository.existsById(id)) {
-			throw new ResourceNotFoundException("Pessoa não encontrada com id: " + id);
-		}
-		pessoaRepository.deleteById(id);
-	}
+        salvar(pessoaExistente);
+
+    }
+
+    // ===================== DELETAR =====================
+
+    @Transactional
+    public void deletarPessoa(Long id) {
+        Pessoa pessoaExistente = buscarPessoaById(id);
+        daoController.delete(pessoaExistente);
+    }
+
+    // ===================== HELPERS PRIVADOS =====================
+
+    private Pessoa buscarPessoaById(Long id) {
+        try {
+            return daoController
+                    .select()
+                    .from(Pessoa.class)
+                    .id(id);
+        } catch (NotFoundException e) {
+            throw new ResourceNotFoundException("Pessoa não encontrada com id: " + id);
+        }
+    }
+
+    private String limparNome(String nome) {
+        if (nome == null) return null;
+        return nome.trim();
+    }
+
+    private String limparTelefone(String telefone) {
+        if (telefone == null) return null;
+        return telefone.replaceAll("[^0-9]", "");
+    }
+
+    private String limparMedidas(String medidas) {
+        if (medidas == null) return null;
+        return medidas.trim();
+    }
+
+    private void validarDadosPessoa(String nomeLimpo, String telefoneLimpo) {
+
+        if (nomeLimpo != null && !StringUtils.hasText(nomeLimpo)) {
+            throw new BusinessException("O nome da pessoa não pode ser composto apenas por espaços.");
+        }
+
+        if (!StringUtils.hasText(telefoneLimpo)) {
+            throw new BusinessException("Telefone é obrigatório.");
+        }
+
+        if (!telefoneLimpo.matches("^[0-9]+$")) {
+            throw new BusinessException("Telefone deve conter apenas números.");
+        }
+
+        if (telefoneLimpo.length() < 8 || telefoneLimpo.length() > 15) {
+            throw new BusinessException("Telefone deve ter entre 8 e 15 dígitos.");
+        }
+    }
+
+    // ===================== SALVAR (INSERT / UPDATE) =====================
+
+    @Transactional
+    public Pessoa salvar(Pessoa pessoa) {
+        if (pessoa.getId() != null) {
+            return daoController.update(pessoa);
+        } else {
+            return daoController.insert(pessoa);
+        }
+    }
 }
