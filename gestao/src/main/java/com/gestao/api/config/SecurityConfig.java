@@ -15,7 +15,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -94,22 +93,10 @@ public class SecurityConfig {
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
                 }
 
-                RoleEnum role = RoleEnum.ROLE_USER;
-
-                UserDetails userDetails = User
-                        .withUsername(usuario.getEmail())
-                        .password(usuario.getSenha())
-                        .authorities(role.name())
-                        .accountExpired(false)
-                        .accountLocked(false)
-                        .credentialsExpired(false)
-                        .disabled(false)
-                        .build();
-
                 return new UsernamePasswordAuthenticationToken(
-                        userDetails,
+                        usuario,
                         null,
-                        userDetails.getAuthorities()
+                        usuario.getAuthorities()
                 );
             }
 
@@ -129,8 +116,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-                "http://localhost:3000"
-                // coloca aqui o domínio real do front quando subir
+                "http://localhost:3000",
+                "http://62.72.9.223:3001"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));

@@ -22,10 +22,12 @@ import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
 import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
+import com.gestao.api.context.UserContext;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
+import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.exceptions.BusinessException;
@@ -60,6 +62,10 @@ public class ServicoService {
         servico.setValor(requestDTO.valor());
         servico.setUrgente(Boolean.TRUE.equals(requestDTO.urgente()));
 
+        Usuario usuarioRef = new Usuario();
+        usuarioRef.setId(UserContext.getIdUsuario());
+        servico.setUsuario(usuarioRef);
+
         if (servico.getDataEntregaPrevista() != null
                 && servico.getDataEntregaPrevista().isBefore(LocalDate.now())) {
             throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
@@ -83,16 +89,18 @@ public class ServicoService {
 
     	List<Servico> servicos;
     	try {
-    		servicos = daoController
-    				.select()
-    				.from(Servico.class)
-    				.join("pessoa")
-    				.where("statusServico", Condicao.IN,
-    						StatusServico.PENDENTE,
-    						StatusServico.EM_ANDAMENTO,
-    						StatusServico.URGENTE)
-    				.orderBy("dataCadastro", false)
-    				.list();
+        	servicos = daoController
+				.select()
+				.from(Servico.class)
+				.join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+				.where("statusServico", Condicao.IN,
+						StatusServico.PENDENTE,
+						StatusServico.EM_ANDAMENTO,
+						StatusServico.URGENTE)
+				.orderBy("dataCadastro", false)
+				.list();
     		
     	} catch (NotFoundException not) {
     		servicos= new ArrayList<Servico>();
@@ -107,6 +115,8 @@ public class ServicoService {
                 .select()
                 .from(Servico.class)
                 .join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
                 .orderBy("dataCadastro", false)
                 .list();
@@ -124,6 +134,8 @@ public class ServicoService {
                     .select()
                     .from(Servico.class)
                     .join("pessoa")
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
 
             return ServicoResponseDTO.refactor(servico);
@@ -282,6 +294,8 @@ public class ServicoService {
         List<Servico> servicos = daoController
                 .select()
                 .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("dataCadastro", Condicao.BETWEEN, dataInicioMes, dataFimMesMaisUmDia)
                 .list();
 
@@ -305,6 +319,8 @@ public class ServicoService {
             return daoController
                     .select()
                     .from(Servico.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (NotFoundException e) {
             throw new RuntimeException("Serviço não encontrado com id: " + id);
@@ -318,6 +334,8 @@ public class ServicoService {
             pes = daoController
                     .select()
                     .from(Pessoa.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
             
         } catch (Exception e) {
@@ -331,6 +349,8 @@ public class ServicoService {
         return daoController
                 .select()
                 .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
                 .where("dataFinalizacao", Condicao.BETWEEN, inicio, fim)
                 .list();
@@ -340,6 +360,8 @@ public class ServicoService {
         List<Servico> servicos = daoController
                 .select()
                 .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusServico", Condicao.EQUAL, status)
                 .list();
 

@@ -6,8 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestao.api.controllers.DTOs.TipoServicoDTO;
+import com.gestao.api.context.UserContext;
 import com.gestao.api.db.DAOController;
+import com.gestao.api.db.Condicao;
 import com.gestao.api.entities.TipoServico;
+import com.gestao.api.entities.Usuario;
 import com.gestao.api.services.exceptions.NotFoundException;
 import com.gestao.api.services.exceptions.ResourceNotFoundException;
 
@@ -27,6 +30,9 @@ public class TipoServicoService {
     public void criarTipoServico(TipoServicoDTO dto) {
         TipoServico tipo = new TipoServico();
         tipo.setNome(dto.nome());
+        Usuario usuarioRef = new Usuario();
+        usuarioRef.setId(UserContext.getIdUsuario());
+        tipo.setUsuario(usuarioRef);
         salvar(tipo);
     }
 
@@ -37,6 +43,8 @@ public class TipoServicoService {
         List<TipoServico> tipos = daoController
                 .select()
                 .from(TipoServico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .orderBy("nome", true)
                 .list();
 
@@ -52,6 +60,8 @@ public class TipoServicoService {
             tipo = daoController
                     .select()
                     .from(TipoServico.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
             return TipoServicoDTO.refactor(tipo);
         } catch (NotFoundException e) {
@@ -84,6 +94,8 @@ public class TipoServicoService {
             return daoController
                     .select()
                     .from(TipoServico.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (NotFoundException e) {
             throw new ResourceNotFoundException("Tipo de Serviço não encontrado com id: " + id);

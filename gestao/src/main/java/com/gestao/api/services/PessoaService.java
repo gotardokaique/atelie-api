@@ -6,9 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.db.DAOController;
+import com.gestao.api.db.Condicao;
 import com.gestao.api.entities.Pessoa;
+import com.gestao.api.entities.Usuario;
 import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.NotFoundException;
 import com.gestao.api.services.exceptions.ResourceNotFoundException;
@@ -39,6 +42,10 @@ public class PessoaService {
         pessoa.setTelefone(telefoneLimpo);
         pessoa.setMedidas(medidasLimpas);
 
+        Usuario usuarioRef = new Usuario();
+        usuarioRef.setId(UserContext.getIdUsuario());
+        pessoa.setUsuario(usuarioRef);
+
         salvar(pessoa);
 
     }
@@ -50,6 +57,8 @@ public class PessoaService {
         List<Pessoa> pessoas = daoController
                 .select()
                 .from(Pessoa.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .list();
 
         return PessoaDTO.refactor(pessoas);
@@ -59,11 +68,13 @@ public class PessoaService {
 
     @Transactional(readOnly = true)
     public PessoaDTO buscarPessoaPorId(Long id) {
-    	Pessoa pessoa;
+		Pessoa pessoa;
         try {
             pessoa = daoController
                     .select()
                     .from(Pessoa.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
 
             return PessoaDTO.refactor(pessoa);
@@ -113,6 +124,8 @@ public class PessoaService {
             return daoController
                     .select()
                     .from(Pessoa.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (NotFoundException e) {
             throw new ResourceNotFoundException("Pessoa não encontrada com id: " + id);

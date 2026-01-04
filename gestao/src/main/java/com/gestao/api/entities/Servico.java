@@ -32,6 +32,10 @@ public class Servico {
     @JoinColumn(name = "pessoa_id")
     private Pessoa pessoa;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
     @Column(name = "descricao")
     private String descricao;
 
@@ -141,5 +145,13 @@ public class Servico {
 
     public void setStatusPagamento(StatusPagamento statusPagamento) {
         this.statusPagamento = statusPagamento;
+    }
+
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 }

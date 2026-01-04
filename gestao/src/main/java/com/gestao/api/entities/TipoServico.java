@@ -21,6 +21,10 @@ public class TipoServico {
     @Column(nullable = false, unique = true) 
     private String nome;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
 	public Long getId() {
 		return id;
 	}
@@ -33,10 +37,16 @@ public class TipoServico {
 		return nome;
 	}
 
-	public void setNome(String nome) {
-		this.nome = nome;
-	}
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
     
-    
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
+    }
 
 }

@@ -8,8 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestao.api.controllers.DTOs.EstoqueDTO;
+import com.gestao.api.context.UserContext;
 import com.gestao.api.db.DAOController;
+import com.gestao.api.db.Condicao;
 import com.gestao.api.entities.Estoque;
+import com.gestao.api.entities.Usuario;
 import com.gestao.api.services.exceptions.NotFoundException;
 
 @Service
@@ -27,6 +30,10 @@ public class EstoqueService {
     	estoque.setNomeItem(estoqueDTO.nomeItem());
     	estoque.setQuantidadeComprada(estoqueDTO.quantidadeComprada());
     	estoque.setValorGasto(estoqueDTO.valorGasto());
+
+        Usuario usuarioRef = new Usuario();
+        usuarioRef.setId(UserContext.getIdUsuario());
+        estoque.setUsuario(usuarioRef);
     	
     	salvar(estoque);
     	  
@@ -40,6 +47,8 @@ public class EstoqueService {
     		
     		estList = dao.select()
     				.from(Estoque.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
     				.list();
     		
     		
@@ -55,6 +64,8 @@ public class EstoqueService {
         try {
             Estoque estoque = dao.select()
                     .from(Estoque.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
 
             return EstoqueDTO.convert(estoque);
@@ -69,6 +80,8 @@ public class EstoqueService {
     	try {
     		estoque = dao.select()
     				.from(Estoque.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
     				.id(id);    
     		
     	} catch (NotFoundException not) {
@@ -87,6 +100,8 @@ public class EstoqueService {
     	 try {
     		 estoque = dao.select()
     				 .from(Estoque.class)
+                     .join("usuario")
+                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
     				 .id(id);
     		 
     		 

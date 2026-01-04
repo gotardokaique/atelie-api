@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -90,7 +89,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Carrega o Usuario direto via DAOController e converte para UserDetails.
+     * Carrega o Usuario direto via DAOController e retorna o próprio Usuario,
+     * que implementa UserDetails e contém o id necessário no contexto.
      */
     private UserDetails carregarUserDetails(String username) {
         try {
@@ -101,18 +101,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .limit(1)
                     .one();
 
-            // Se por algum motivo não tiver role, garante uma default
-            RoleEnum role =  RoleEnum.ROLE_USER;
-
-            return User
-                    .withUsername(usuario.getEmail())
-                    .password(usuario.getSenha()) // não é usado no fluxo JWT, mas o contrato pede
-                    .authorities(role.name())
-                    .accountExpired(false)
-                    .accountLocked(false)
-                    .credentialsExpired(false)
-                    .disabled(false)
-                    .build();
+            return usuario;
 
         } catch (Exception e) {
             logger.warn("Erro ao carregar usuário '{}' para autenticação JWT: {}", username, e.getMessage());
