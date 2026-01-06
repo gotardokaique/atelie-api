@@ -92,7 +92,7 @@ public class ServicoService {
         	servicos = daoController
 				.select()
 				.from(Servico.class)
-				.join("pessoa")
+				.leftJoin("pessoa")
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
 				.where("statusServico", Condicao.IN,
@@ -133,7 +133,7 @@ public class ServicoService {
             servico = daoController
                     .select()
                     .from(Servico.class)
-                    .join("pessoa")
+                    .leftJoin("pessoa")
                     .join("usuario")
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);

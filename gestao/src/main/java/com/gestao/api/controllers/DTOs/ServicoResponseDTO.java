@@ -37,8 +37,8 @@ public record ServicoResponseDTO(
                 servico.getDataEntregaPrevista(),
                 servico.getDataFinalizacao(),
                 servico.getDataCadastro(),
-                servico.getPessoa().getId(),
-                servico.getPessoa().getNome()
+                servico.getPessoa() != null ? servico.getPessoa().getId() : null,
+                servico.getPessoa() != null ? servico.getPessoa().getNome() : ""
                 
         );
     }

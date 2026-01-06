@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.gestao.api.controllers.DTOs.PessoaDTO;
+import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.services.PessoaService;
 
 @RestController
@@ -28,6 +29,11 @@ public class PessoaController {
     @GetMapping
     public ResponseEntity<List<PessoaDTO>> listarTodasPessoas() {
         return ResponseEntity.ok(pessoaService.listarTodasPessoas());
+    }
+
+    @GetMapping("/clientes")
+    public ResponseEntity<List<PessoaResumoDTO>> listarClientesDoUsuario() {
+        return ResponseEntity.ok(pessoaService.listarClientesDoUsuario());
     }
 
     @GetMapping("/{id}")

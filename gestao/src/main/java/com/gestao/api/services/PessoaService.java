@@ -8,6 +8,7 @@ import org.springframework.util.StringUtils;
 
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
+import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.db.DAOController;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.entities.Pessoa;
@@ -62,6 +63,19 @@ public class PessoaService {
                 .list();
 
         return PessoaDTO.refactor(pessoas);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PessoaResumoDTO> listarClientesDoUsuario() {
+        List<Pessoa> pessoas = daoController
+                .select("id","nome")
+                .from(Pessoa.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .orderBy("nome", true)
+                .list();
+
+        return PessoaResumoDTO.refactor(pessoas);
     }
 
     // ===================== BUSCAR POR ID =====================
