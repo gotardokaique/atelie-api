@@ -85,22 +85,37 @@ public class ServicoService {
     // ===================== LISTAR =====================
 
     @Transactional(readOnly = true)
-    public List<ServicoResponseDTO> listarServicosEmAberto() {
+    public List<ServicoResponseDTO> listarServicosEmAberto(Long pessoaId) {
 
     	List<Servico> servicos;
     	try {
-        	servicos = daoController
-				.select()
-				.from(Servico.class)
-				.leftJoin("pessoa")
-                .join("usuario")
-                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-				.where("statusServico", Condicao.IN,
-						StatusServico.PENDENTE,
-						StatusServico.EM_ANDAMENTO,
-						StatusServico.URGENTE)
-				.orderBy("dataCadastro", false)
-				.list();
+            if (pessoaId != null) {
+                servicos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where("statusServico", Condicao.IN,
+                            StatusServico.PENDENTE,
+                            StatusServico.EM_ANDAMENTO,
+                            StatusServico.URGENTE)
+                    .orderBy("dataCadastro", false)
+                    .list();
+            } else {
+                servicos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where("statusServico", Condicao.IN,
+                            StatusServico.PENDENTE,
+                            StatusServico.EM_ANDAMENTO,
+                            StatusServico.URGENTE)
+                    .orderBy("dataCadastro", false)
+                    .list();
+            }
     		
     	} catch (NotFoundException not) {
     		servicos= new ArrayList<Servico>();
