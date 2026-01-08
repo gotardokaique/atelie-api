@@ -2,15 +2,9 @@ package com.gestao.api.entities;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Entity 
 @Table(name = "tipos_servico") 
-@Data 
-@NoArgsConstructor 
-@AllArgsConstructor
 public class TipoServico {
 
     @Id 
@@ -24,6 +18,8 @@ public class TipoServico {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
+
+    public TipoServico() {}
 
 	public Long getId() {
 		return id;
