@@ -7,6 +7,7 @@
 **/.factorypath
 **/.project
 **/.settings/
+**/.properties
 **/.springBeans
 **/.sts4-cache/
 
@@ -30,3 +31,4 @@
 .DS_Store
 Thumbs.db
 
+src/main/resources/

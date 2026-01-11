@@ -83,9 +83,9 @@ public class RegisterUserBO {
 		boolean temMaiuscula = senha.matches(".*[A-Z].*");
 		boolean temMinuscula = senha.matches(".*[a-z].*");
 		boolean temNumero = senha.matches(".*[0-9].*");
-		boolean temEspecial = senha.matches(".*[^a-zA-Z0-9].*");
+	//	boolean temEspecial = senha.matches(".*[^a-zA-Z0-9].*");
 
-		if (!temMaiuscula || !temMinuscula || !temNumero || !temEspecial) {
+		if (!temMaiuscula || !temMinuscula || !temNumero) {
 			return false;
 		}
 

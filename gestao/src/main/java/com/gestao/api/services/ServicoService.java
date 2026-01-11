@@ -1,11 +1,10 @@
 package com.gestao.api.services;
 
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -17,12 +16,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
 import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
-import com.gestao.api.context.UserContext;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
@@ -36,13 +35,15 @@ import com.gestao.api.services.exceptions.NotFoundException;
 @Service
 public class ServicoService {
 
-    private final DAOController daoController;
     private static final Logger log = LoggerFactory.getLogger(ServicoService.class);
-
     private static final StatusServico FINALIZADO = StatusServico.FINALIZADO;
 
-    public ServicoService(DAOController daoController) {
+    private final DAOController daoController;
+    private final Clock clock;
+
+    public ServicoService(DAOController daoController, Clock clock) {
         this.daoController = daoController;
+        this.clock = clock;
     }
 
     // ===================== CRIAR =====================
@@ -66,8 +67,11 @@ public class ServicoService {
         usuarioRef.setId(UserContext.getIdUsuario());
         servico.setUsuario(usuarioRef);
 
+        // Rondônia
+        LocalDate hoje = LocalDate.now(clock);
+
         if (servico.getDataEntregaPrevista() != null
-                && servico.getDataEntregaPrevista().isBefore(LocalDate.now())) {
+                && servico.getDataEntregaPrevista().isBefore(hoje)) {
             throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
         }
 
@@ -87,10 +91,10 @@ public class ServicoService {
     @Transactional(readOnly = true)
     public List<ServicoResponseDTO> listarServicosEmAberto(Long pessoaId) {
 
-    	List<Servico> servicos;
-    	try {
-            if (pessoaId != null) {
-                servicos = daoController
+        List<Servico> servicos;
+        try {
+            // Observação: seu if/else era igual. Mantive simples.
+            servicos = daoController
                     .select()
                     .from(Servico.class)
                     .leftJoin("pessoa")
@@ -102,24 +106,10 @@ public class ServicoService {
                             StatusServico.URGENTE)
                     .orderBy("dataCadastro", false)
                     .list();
-            } else {
-                servicos = daoController
-                    .select()
-                    .from(Servico.class)
-                    .leftJoin("pessoa")
-                    .join("usuario")
-                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-                    .where("statusServico", Condicao.IN,
-                            StatusServico.PENDENTE,
-                            StatusServico.EM_ANDAMENTO,
-                            StatusServico.URGENTE)
-                    .orderBy("dataCadastro", false)
-                    .list();
-            }
-    		
-    	} catch (NotFoundException not) {
-    		servicos= new ArrayList<Servico>();
-    	}
+
+        } catch (NotFoundException not) {
+            servicos = new ArrayList<>();
+        }
 
         return ServicoResponseDTO.refactor(servicos);
     }
@@ -167,8 +157,10 @@ public class ServicoService {
         Servico servico = buscarServicoById(id);
 
         servico.setStatusServico(novoStatus);
-        if (servico.getStatusServico().equals(FINALIZADO)) {
-            servico.setDataFinalizacao(LocalDate.now());
+
+        if (FINALIZADO.equals(servico.getStatusServico())) {
+            // Rondônia
+            servico.setDataFinalizacao(LocalDate.now(clock));
         }
 
         salvar(servico);
@@ -202,7 +194,7 @@ public class ServicoService {
         servicoExistente.setValor(requestDTO.valor());
         servicoExistente.setUrgente(Boolean.TRUE.equals(requestDTO.urgente()));
 
-        if (!servicoExistente.getStatusServico().equals(FINALIZADO)) {
+        if (!FINALIZADO.equals(servicoExistente.getStatusServico())) {
             if (servicoExistente.isUrgente()) {
                 servicoExistente.setStatusServico(StatusServico.URGENTE);
             } else {
@@ -210,8 +202,11 @@ public class ServicoService {
             }
         }
 
+        // Rondônia
+        LocalDate hoje = LocalDate.now(clock);
+
         if (servicoExistente.getDataEntregaPrevista() != null
-                && servicoExistente.getDataEntregaPrevista().isBefore(LocalDate.now())) {
+                && servicoExistente.getDataEntregaPrevista().isBefore(hoje)) {
             throw new BusinessException("A data de previsão de entrega não pode ser no passado.");
         }
 
@@ -230,76 +225,78 @@ public class ServicoService {
 
     @Transactional(readOnly = true)
     public BigDecimal calcularSomaFinalizadosMesAtual() {
-        YearMonth mesAtual = YearMonth.now();
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+
         LocalDate dataInicio = mesAtual.atDay(1);
-        LocalDate dataFim = mesAtual.atEndOfMonth();
+        LocalDate dataFim = hoje; // mês atual ATÉ HOJE
 
         List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
         return somarValor(servicos);
     }
 
     @Transactional(readOnly = true)
-    public BigDecimal calcularSomaFinalizadosSemanaAtual() {
-        LocalDate hoje = LocalDate.now();
-        LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+    public BigDecimal calcularSomaFinalizadosUltimos7Dias() {
+        LocalDate hoje = LocalDate.now(clock);
 
-        List<Servico> servicos = buscarServicosFinalizadosEntre(inicioSemana, fimSemana);
+        LocalDate dataInicio = hoje.minusDays(6); // 7 dias incluindo hoje
+        LocalDate dataFim = hoje;
+
+        List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
         return somarValor(servicos);
     }
 
     @Transactional(readOnly = true)
     public DashboardStatsDTO getDashboardStats() {
-
         long pendenteCount = countByStatus(StatusServico.PENDENTE);
         long emAndamentoCount = countByStatus(StatusServico.EM_ANDAMENTO);
         long urgenteCount = countByStatus(StatusServico.URGENTE);
 
-        LocalDate hoje = LocalDate.now();
-        LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+        // Rondônia
+        LocalDate hoje = LocalDate.now(clock);
+        LocalDate inicio = hoje.minusDays(6);
+        LocalDate fim = hoje;
 
-        long finalizadosSemanaCount = countFinalizadosEntre(inicioSemana, fimSemana);
+        long finalizadosUltimos7DiasCount = countFinalizadosEntre(inicio, fim);
 
         return new DashboardStatsDTO(
                 pendenteCount,
                 emAndamentoCount,
                 urgenteCount,
-                finalizadosSemanaCount
+                finalizadosUltimos7DiasCount
         );
     }
 
     @Transactional(readOnly = true)
     public ResumoFinanceiroDTO getResumoFinanceiroMesAtual() {
-        YearMonth mesAtual = YearMonth.now();
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+
         LocalDate dataInicio = mesAtual.atDay(1);
-        LocalDate dataFim = mesAtual.atEndOfMonth();
+        LocalDate dataFim = hoje;
 
         List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
 
-        BigDecimal soma = somarValor(servicos);
-        long contagem = servicos.size();
-
-        return new ResumoFinanceiroDTO(soma, contagem);
+        return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
     }
 
     @Transactional(readOnly = true)
-    public ResumoFinanceiroDTO getResumoFinanceiroSemanaAtual() {
-        LocalDate hoje = LocalDate.now();
-        LocalDate inicioSemana = hoje.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate fimSemana = hoje.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+    public ResumoFinanceiroDTO getResumoFinanceiroUltimos7Dias() {
+        LocalDate hoje = LocalDate.now(clock);
 
-        List<Servico> servicos = buscarServicosFinalizadosEntre(inicioSemana, fimSemana);
+        LocalDate dataInicio = hoje.minusDays(6);
+        LocalDate dataFim = hoje;
 
-        BigDecimal soma = somarValor(servicos);
-        long contagem = servicos.size();
+        List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
 
-        return new ResumoFinanceiroDTO(soma, contagem);
+        return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
     }
 
     @Transactional(readOnly = true)
     public List<HorarioPicoDTO> getHorariosDePicoMes(int ano, int mes) {
         YearMonth anoMes = YearMonth.of(ano, mes);
+
+        // Se dataCadastro for LocalDateTime (parece ser), isso está OK.
         LocalDateTime dataInicioMes = anoMes.atDay(1).atStartOfDay();
         LocalDateTime dataFimMesMaisUmDia = anoMes.plusMonths(1).atDay(1).atStartOfDay();
 
@@ -343,8 +340,8 @@ public class ServicoService {
     }
 
     private Pessoa buscarPessoaById(Long id) {
-    	Pessoa pes;
-    	
+        Pessoa pes;
+
         try {
             pes = daoController
                     .select()
@@ -352,11 +349,11 @@ public class ServicoService {
                     .join("usuario")
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
-            
+
         } catch (Exception e) {
             pes = new Pessoa();
         }
-        
+
         return pes;
     }
 
@@ -366,7 +363,7 @@ public class ServicoService {
                 .from(Servico.class)
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
                 .where("dataFinalizacao", Condicao.BETWEEN, inicio, fim)
                 .list();
     }

@@ -30,3 +30,5 @@ target/
 # OS
 .DS_Store
 Thumbs.db
+# === LOCAL CONFIG (NUNCA VERSIONAR) ===
+src/main/resources/

@@ -27,7 +27,7 @@ public class FinanceiroController {
 
     @GetMapping("/resumo-semana-atual")
     public ResponseEntity<ResumoFinanceiroDTO> getResumoSemana() {
-        return ResponseEntity.ok(servicoService.getResumoFinanceiroSemanaAtual());
+        return ResponseEntity.ok(servicoService.getResumoFinanceiroUltimos7Dias());
     }
 
     @GetMapping("/horarios-pico")
