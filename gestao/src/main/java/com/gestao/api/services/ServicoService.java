@@ -272,10 +272,9 @@ public class ServicoService {
         LocalDate hoje = LocalDate.now(clock);
         YearMonth mesAtual = YearMonth.from(hoje);
 
-        LocalDate dataInicio = mesAtual.atDay(1);
-        LocalDate dataFim = hoje;
+        LocalDateTime inicio = mesAtual.atDay(1).atStartOfDay();
 
-        List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
+        List<Servico> servicos = buscarServicosPagosFinalizadosPorDataCadastroEntre(inicio);
 
         return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
     }
@@ -284,10 +283,9 @@ public class ServicoService {
     public ResumoFinanceiroDTO getResumoFinanceiroUltimos7Dias() {
         LocalDate hoje = LocalDate.now(clock);
 
-        LocalDate dataInicio = hoje.minusDays(6);
-        LocalDate dataFim = hoje;
+        LocalDateTime inicio = hoje.minusDays(6).atStartOfDay();
 
-        List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
+        List<Servico> servicos = buscarServicosPagosFinalizadosPorDataCadastroEntre(inicio);
 
         return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
     }
@@ -400,5 +398,16 @@ public class ServicoService {
         } else {
             return daoController.insert(servico);
         }
+    }
+    
+    private List<Servico> buscarServicosPagosFinalizadosPorDataCadastroEntre(LocalDateTime inicio) {
+        return daoController
+                .select()
+                .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicio)
+                .list();
     }
 }
