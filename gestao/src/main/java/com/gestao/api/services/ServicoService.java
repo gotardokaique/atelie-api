@@ -6,8 +6,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -19,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
+import com.gestao.api.controllers.DTOs.NomeValorDTO;
+import com.gestao.api.controllers.DTOs.PessoaRankingDTO;
 import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
@@ -410,4 +415,100 @@ public class ServicoService {
                 .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicio)
                 .list();
     }
+
+
+    @Transactional(readOnly = true)
+    public List<NomeValorDTO> listarNomeValorMesAtual() {
+
+    	LocalDate hoje = LocalDate.now(clock);
+    	YearMonth mesAtual = YearMonth.from(hoje);
+    	LocalDateTime inicioMes = mesAtual.atDay(1).atStartOfDay();
+
+    	List<Servico> servicos = daoController
+    			.select()
+    			.from(Servico.class)
+    			.leftJoin("pessoa")
+    			.join("usuario")
+    			.where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+    			.where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+    			.where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicioMes)
+    			.orderBy("valor", false)
+    			.list();
+
+    	List<NomeValorDTO> retorno = new ArrayList<>();
+
+
+    	for (Servico ser : servicos) {
+    		String nome = "Sem pessoa";
+    		if (ser.getPessoa() != null ) {
+    			nome = ser.getPessoa().getNome();
+    		}
+
+    		BigDecimal valor = ser.getValor();
+
+    		retorno.add(new NomeValorDTO(nome, valor));
+    	}
+
+    	return retorno;
+    }
+    
+    @Transactional(readOnly = true)
+    public List<PessoaRankingDTO> rankPessoasUltimos3Meses() {
+
+        LocalDateTime inicio = LocalDateTime.now(clock).minusMonths(3);
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicio)
+                .list();
+
+        Map<Long, PessoaRankingDTO> acumulado = new HashMap<>();
+
+        for (Servico s : servicos) {
+            Pessoa p = s.getPessoa();
+            if (p == null || p.getId() == null) {
+                continue; 
+            }
+
+            Long pessoaId = p.getId();
+            String nome = p.getNome() ;
+
+            BigDecimal valor = s.getValor();
+
+            PessoaRankingDTO dto = acumulado.get(pessoaId);
+            if (dto == null) {
+                dto = new PessoaRankingDTO(pessoaId, nome, 0L, BigDecimal.ZERO);
+                acumulado.put(pessoaId, dto);
+            }
+
+            dto.setQuantidade(dto.getQuantidade() + 1);
+            dto.setTotal(dto.getTotal().add(valor));
+        }
+
+        // Map -> List
+        List<PessoaRankingDTO> ranking = new ArrayList<>();
+        for (PessoaRankingDTO dto : acumulado.values()) {
+            ranking.add(dto);
+        }
+
+        // Ordenação: quantidade desc, depois total desc, depois nome asc
+        Collections.sort(ranking, (a, b) -> {
+            int c1 = Long.compare(b.getQuantidade(), a.getQuantidade());
+            if (c1 != 0) return c1;
+
+            int c2 = b.getTotal().compareTo(a.getTotal());
+            if (c2 != 0) return c2;
+
+            return a.getNome().compareToIgnoreCase(b.getNome());
+        });
+
+        return ranking;
+    }
+
+
 }
