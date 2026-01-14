@@ -13,6 +13,7 @@ import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
 import com.gestao.api.controllers.DTOs.NomeValorDTO;
 import com.gestao.api.controllers.DTOs.PessoaRankingDTO;
 import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
+import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
 import com.gestao.api.services.ServicoService;
 
 @RestController
@@ -52,6 +53,10 @@ public class FinanceiroController {
         return ResponseEntity.ok(servicoService.listarNomeValorMesAtual());
     }
     
+    @GetMapping("/pendencias-mes-atual")
+    public ResponseEntity<ResumoPendenciasDTO> pendenciasMesAtual() {
+        return ResponseEntity.ok(servicoService.getResumoPendenciasMesAtual());
+    }
 
     @GetMapping("/ranking-pessoas-ultimos-3-meses")
     public ResponseEntity<List<PessoaRankingDTO>> rankingPessoasUltimos3Meses() {

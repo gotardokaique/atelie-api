@@ -25,6 +25,7 @@ import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
 import com.gestao.api.controllers.DTOs.NomeValorDTO;
 import com.gestao.api.controllers.DTOs.PessoaRankingDTO;
 import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
+import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.db.Condicao;
@@ -453,6 +454,64 @@ public class ServicoService {
     }
     
     @Transactional(readOnly = true)
+    public long contarPessoasFinalizadasNaoPagasMesAtual() {
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+        LocalDateTime inicioMes = mesAtual.atDay(1).atStartOfDay();
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("statusPagamento", Condicao.NOT_EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicioMes)
+                .list();
+
+        return servicos.stream()
+                .map(Servico::getPessoa)
+                .filter(Objects::nonNull)
+                .map(Pessoa::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+    }
+    
+    @Transactional(readOnly = true)
+    public ResumoPendenciasDTO getResumoPendenciasMesAtual() {
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+        LocalDateTime inicioMes = mesAtual.atDay(1).atStartOfDay();
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("statusPagamento", Condicao.NOT_EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicioMes)
+                .list();
+
+        long quantidadePessoas = servicos.stream()
+                .map(Servico::getPessoa)
+                .filter(Objects::nonNull)
+                .map(Pessoa::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+
+        BigDecimal valorTotalNaoPago = servicos.stream()
+                .map(Servico::getValor)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new ResumoPendenciasDTO(valorTotalNaoPago, quantidadePessoas);
+    }
+    @Transactional(readOnly = true)
     public List<PessoaRankingDTO> rankPessoasUltimos3Meses() {
 
         LocalDateTime inicio = LocalDateTime.now(clock).minusMonths(3);
@@ -468,7 +527,6 @@ public class ServicoService {
                 .list();
 
         Map<Long, PessoaRankingDTO> acumulado = new HashMap<>();
-
         for (Servico s : servicos) {
             Pessoa p = s.getPessoa();
             if (p == null || p.getId() == null) {
@@ -478,7 +536,9 @@ public class ServicoService {
             Long pessoaId = p.getId();
             String nome = p.getNome() ;
 
-            BigDecimal valor = s.getValor();
+            BigDecimal valor = s.getValor() != null
+                    ? s.getValor()
+                    : BigDecimal.ZERO;
 
             PessoaRankingDTO dto = acumulado.get(pessoaId);
             if (dto == null) {
@@ -507,7 +567,10 @@ public class ServicoService {
             return a.getNome().compareToIgnoreCase(b.getNome());
         });
 
-        return ranking;
+
+        return ranking.stream()
+                .limit(10)
+                .toList();
     }
 
 
