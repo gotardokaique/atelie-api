@@ -577,6 +577,8 @@ public class ServicoService {
         return   daoController.select()
                 .from(Servico.class)
                 .join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .list();
     }
 
