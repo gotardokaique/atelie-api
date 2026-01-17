@@ -3,7 +3,11 @@ package com.gestao.api.controllers;
 import java.util.List;
 import java.util.Map;
 
+import com.gestao.api.entities.Servico;
+import com.gestao.api.services.WorkService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -92,5 +96,31 @@ public class ServicoController {
     public ResponseEntity<Void> deletarServico(@PathVariable Long id) {
         servicoService.deletarServico(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/servico-relatorio-one")
+    public ResponseEntity<byte[]> download() {
+        List<Servico>  serList = servicoService.gerarRelatorio();
+        WorkService work = new WorkService();
+
+
+        work.setAba("Serviços")
+                .setTitle("Relatório de Serviços")
+                .titleUpperCase()
+                .colUpperCase()
+                .setColorCabecalho("bg-gray-100")
+                .createCol("Nome", "Descrição", "Valor", "Data Cadastro", "Data Finalizacao");
+
+        for (Servico serBean : serList) {
+            work.createRow(serBean.getPessoa().getNome(), serBean.getDescricao(), serBean.getValor(), serBean.getDataCadastro(), serBean.getDataFinalizacao() );
+        }
+
+        work.fileName("relatorio-servicos.xlsx");
+        byte[] bytes = work.getBytesXLSX();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"relatorio-servicos.xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
     }
 }

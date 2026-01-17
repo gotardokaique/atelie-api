@@ -21,6 +21,8 @@
 		<org.projectlombok.version>1.18.30</org.projectlombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+        <poi.version>5.4.0</poi.version>
+        <commons-compress.version>1.26.0</commons-compress.version>
 
 	</properties>
 	<dependencies>
@@ -32,6 +34,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>

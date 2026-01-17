@@ -117,9 +117,9 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "https://genfinance.com.br",
+                "http://localhost:3000",
                 "https://www.genfinance.com.br",
-                "https://api.genfinance.com.br",
-                "http://195.35.40.222:3001"
+                "https://api.genfinance.com.br"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));

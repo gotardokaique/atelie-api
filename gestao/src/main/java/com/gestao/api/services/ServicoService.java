@@ -573,5 +573,12 @@ public class ServicoService {
                 .toList();
     }
 
+    public List<Servico> gerarRelatorio () {
+        return   daoController.select()
+                .from(Servico.class)
+                .join("pessoa")
+                .list();
+    }
+
 
 }
