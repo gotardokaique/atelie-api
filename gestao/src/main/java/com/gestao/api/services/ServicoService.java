@@ -510,7 +510,7 @@ public class ServicoService {
         List<Servico> servicos = daoController
                 .select()
                 .from(Servico.class)
-                .leftJoin("pessoa")
+                .join("pessoa")
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
