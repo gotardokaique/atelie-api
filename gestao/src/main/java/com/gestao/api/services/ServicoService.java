@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -284,6 +286,14 @@ public class ServicoService {
 
         return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
     }
+    
+    public ResumoFinanceiroDTO getResumoFinanceiroMesAtual(String mesAno) {
+        YearMonth ym = parseMesAno(mesAno);
+        LocalDateTime inicio = ym.atDay(1).atStartOfDay();
+        LocalDateTime fim = ym.atEndOfMonth().atTime(LocalTime.MAX);
+        List<Servico> servicos = buscarServicosPagosFinalizadosPorDataCadastroEntre(inicio, fim);
+        return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
+    }
 
     @Transactional(readOnly = true)
     public ResumoFinanceiroDTO getResumoFinanceiroUltimos7Dias() {
@@ -416,6 +426,17 @@ public class ServicoService {
                 .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicio)
                 .list();
     }
+    
+    private List<Servico> buscarServicosPagosFinalizadosPorDataCadastroEntre(LocalDateTime inicio, LocalDateTime fim) {
+        return daoController
+                .select()
+                .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.BETWEEN, inicio, fim)
+                .list();
+    }
 
 
     @Transactional(readOnly = true)
@@ -451,6 +472,63 @@ public class ServicoService {
     	}
 
     	return retorno;
+    }
+    
+    public List<NomeValorDTO> listarNomeValorMesAtual(String mesAno) {
+        YearMonth ym = parseMesAno(mesAno);
+        LocalDateTime inicioMes = ym.atDay(1).atStartOfDay();
+        LocalDateTime fimMes = ym.atEndOfMonth().atTime(LocalTime.MAX);
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .leftJoin("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.BETWEEN, inicioMes, fimMes)
+                .orderBy("valor", false)
+                .list();
+
+        List<NomeValorDTO> retorno = new ArrayList<>();
+        for (Servico ser : servicos) {
+            String nome = "Sem pessoa";
+            if (ser.getPessoa() != null) {
+                nome = ser.getPessoa().getNome();
+            }
+            BigDecimal valor = ser.getValor();
+            retorno.add(new NomeValorDTO(nome, valor));
+        }
+        return retorno;
+    }
+
+    public List<NomeValorDTO> listarNomeValorPendenciasMes(String mesAno) {
+        YearMonth ym = parseMesAno(mesAno);
+        LocalDateTime inicioMes = ym.atDay(1).atStartOfDay();
+        LocalDateTime fimMes = ym.atEndOfMonth().atTime(LocalTime.MAX);
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .leftJoin("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("statusPagamento", Condicao.NOT_EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.BETWEEN, inicioMes, fimMes)
+                .orderBy("valor", false)
+                .list();
+
+        List<NomeValorDTO> retorno = new ArrayList<>();
+        for (Servico ser : servicos) {
+            String nome = "Sem pessoa";
+            if (ser.getPessoa() != null) {
+                nome = ser.getPessoa().getNome();
+            }
+            BigDecimal valor = ser.getValor();
+            retorno.add(new NomeValorDTO(nome, valor));
+        }
+        return retorno;
     }
     
     @Transactional(readOnly = true)
@@ -510,6 +588,53 @@ public class ServicoService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new ResumoPendenciasDTO(valorTotalNaoPago, quantidadePessoas);
+    }
+    
+    public ResumoPendenciasDTO getResumoPendenciasMesAtual(String mesAno) {
+        YearMonth ym = parseMesAno(mesAno);
+        LocalDateTime inicioMes = ym.atDay(1).atStartOfDay();
+        LocalDateTime fimMes = ym.atEndOfMonth().atTime(LocalTime.MAX);
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("statusPagamento", Condicao.NOT_EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.BETWEEN, inicioMes, fimMes)
+                .list();
+
+        long quantidadePessoas = servicos.stream()
+                .map(Servico::getPessoa)
+                .filter(Objects::nonNull)
+                .map(Pessoa::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+
+        BigDecimal valorTotalNaoPago = servicos.stream()
+                .map(Servico::getValor)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new ResumoPendenciasDTO(valorTotalNaoPago, quantidadePessoas);
+    }
+    
+    private YearMonth parseMesAno(String mesAno) {
+        if (mesAno == null || mesAno.isBlank()) {
+            LocalDate hoje = LocalDate.now(clock);
+            return YearMonth.from(hoje);
+        }
+        String valor = mesAno.trim();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/yyyy");
+        try {
+            return YearMonth.parse(valor, fmt);
+        } catch (Exception e) {
+            DateTimeFormatter alt = DateTimeFormatter.ofPattern("M/yyyy");
+            return YearMonth.parse(valor, alt);
+        }
     }
     @Transactional(readOnly = true)
     public List<PessoaRankingDTO> rankPessoasUltimos3Meses() {
