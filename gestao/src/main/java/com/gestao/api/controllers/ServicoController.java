@@ -35,9 +35,9 @@ public class ServicoController {
     }
 
     @GetMapping("/em-aberto")
-    public ResponseEntity<List<ServicoResponseDTO>> listarServicosEmAberto(
-            @RequestParam(required = false) Long pessoaId) {
-        return ResponseEntity.ok(servicoService.listarServicosEmAberto(pessoaId));
+    public ResponseEntity<List<ServicoResponseDTO>> listarServicosEmAberto()
+             {
+        return ResponseEntity.ok(servicoService.listarServicosEmAberto());
     }
 
     @GetMapping("/finalizados")

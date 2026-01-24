@@ -18,6 +18,8 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +47,7 @@ public class ServicoService {
 
     private static final Logger log = LoggerFactory.getLogger(ServicoService.class);
     private static final StatusServico FINALIZADO = StatusServico.FINALIZADO;
+    private static final String CACHE_SERVICOS_EM_ABERTO = "SERVICOS_EM_ABERTO";
 
     private final DAOController daoController;
     private final Clock clock;
@@ -54,9 +57,11 @@ public class ServicoService {
         this.clock = clock;
     }
 
-    // ===================== CRIAR =====================
-
     @Transactional
+    @CacheEvict(
+            value = CACHE_SERVICOS_EM_ABERTO,
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public void criarServico(ServicoRequestDTO requestDTO) {
         Pessoa pessoa = null;
 
@@ -75,7 +80,6 @@ public class ServicoService {
         usuarioRef.setId(UserContext.getIdUsuario());
         servico.setUsuario(usuarioRef);
 
-        // Rondônia
         LocalDate hoje = LocalDate.now(clock);
 
         if (servico.getDataEntregaPrevista() != null
@@ -94,14 +98,15 @@ public class ServicoService {
         salvar(servico);
     }
 
-    // ===================== LISTAR =====================
-
     @Transactional(readOnly = true)
-    public List<ServicoResponseDTO> listarServicosEmAberto(Long pessoaId) {
+    @Cacheable(
+            value = CACHE_SERVICOS_EM_ABERTO,
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
+    public List<ServicoResponseDTO> listarServicosEmAberto() {
 
         List<Servico> servicos;
         try {
-            // Observação: seu if/else era igual. Mantive simples.
             servicos = daoController
                     .select()
                     .from(Servico.class)
@@ -137,8 +142,6 @@ public class ServicoService {
         return ServicoResponseDTO.refactor(servicos);
     }
 
-    // ===================== BUSCAR POR ID =====================
-
     @Transactional(readOnly = true)
     public ServicoResponseDTO buscarServicoPorId(Long id) {
         Servico servico;
@@ -158,36 +161,39 @@ public class ServicoService {
         }
     }
 
-    // ===================== ATUALIZAR STATUS SERVIÇO =====================
-
     @Transactional
+    @CacheEvict(
+            value = CACHE_SERVICOS_EM_ABERTO,
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public void atualizarStatusServico(Long id, StatusServico novoStatus) {
         Servico servico = buscarServicoById(id);
 
         servico.setStatusServico(novoStatus);
 
         if (FINALIZADO.equals(servico.getStatusServico())) {
-            // Rondônia
             servico.setDataFinalizacao(LocalDate.now(clock));
         }
 
         salvar(servico);
     }
 
-    // ===================== ATUALIZAR STATUS PAGAMENTO =====================
-
     @Transactional
+    @CacheEvict(
+            value = CACHE_SERVICOS_EM_ABERTO,
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public void atualizarStatusPagamento(Long id, StatusPagamento novoStatus) {
         Servico servico = buscarServicoById(id);
-
         servico.setStatusPagamento(novoStatus);
-
         salvar(servico);
     }
 
-    // ===================== ATUALIZAR SERVIÇO COMPLETO =====================
-
     @Transactional
+    @CacheEvict(
+            value = CACHE_SERVICOS_EM_ABERTO,
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public void atualizarServicoCompleto(Long id, ServicoRequestDTO requestDTO) {
         Servico servicoExistente = buscarServicoById(id);
 
@@ -210,7 +216,6 @@ public class ServicoService {
             }
         }
 
-        // Rondônia
         LocalDate hoje = LocalDate.now(clock);
 
         if (servicoExistente.getDataEntregaPrevista() != null
@@ -221,15 +226,15 @@ public class ServicoService {
         salvar(servicoExistente);
     }
 
-    // ===================== DELETAR =====================
-
     @Transactional
+    @CacheEvict(
+            value = CACHE_SERVICOS_EM_ABERTO,
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public void deletarServico(Long id) {
         Servico servicoExistente = buscarServicoById(id);
         daoController.delete(servicoExistente);
     }
-
-    // ===================== DASHBOARD / RESUMOS =====================
 
     @Transactional(readOnly = true)
     public BigDecimal calcularSomaFinalizadosMesAtual() {
@@ -237,7 +242,7 @@ public class ServicoService {
         YearMonth mesAtual = YearMonth.from(hoje);
 
         LocalDate dataInicio = mesAtual.atDay(1);
-        LocalDate dataFim = hoje; // mês atual ATÉ HOJE
+        LocalDate dataFim = hoje;
 
         List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
         return somarValor(servicos);
@@ -247,7 +252,7 @@ public class ServicoService {
     public BigDecimal calcularSomaFinalizadosUltimos7Dias() {
         LocalDate hoje = LocalDate.now(clock);
 
-        LocalDate dataInicio = hoje.minusDays(6); // 7 dias incluindo hoje
+        LocalDate dataInicio = hoje.minusDays(6);
         LocalDate dataFim = hoje;
 
         List<Servico> servicos = buscarServicosFinalizadosEntre(dataInicio, dataFim);
@@ -260,7 +265,6 @@ public class ServicoService {
         long emAndamentoCount = countByStatus(StatusServico.EM_ANDAMENTO);
         long urgenteCount = countByStatus(StatusServico.URGENTE);
 
-        // Rondônia
         LocalDate hoje = LocalDate.now(clock);
         LocalDate inicio = hoje.minusDays(6);
         LocalDate fim = hoje;
@@ -286,7 +290,7 @@ public class ServicoService {
 
         return new ResumoFinanceiroDTO(somarValor(servicos), servicos.size());
     }
-    
+
     public ResumoFinanceiroDTO getResumoFinanceiroMesAtual(String mesAno) {
         YearMonth ym = parseMesAno(mesAno);
         LocalDateTime inicio = ym.atDay(1).atStartOfDay();
@@ -310,7 +314,6 @@ public class ServicoService {
     public List<HorarioPicoDTO> getHorariosDePicoMes(int ano, int mes) {
         YearMonth anoMes = YearMonth.of(ano, mes);
 
-        // Se dataCadastro for LocalDateTime (parece ser), isso está OK.
         LocalDateTime dataInicioMes = anoMes.atDay(1).atStartOfDay();
         LocalDateTime dataFimMesMaisUmDia = anoMes.plusMonths(1).atDay(1).atStartOfDay();
 
@@ -337,8 +340,6 @@ public class ServicoService {
                 .sorted(Comparator.comparing(HorarioPicoDTO::hora))
                 .toList();
     }
-
-    // ===================== HELPERS PRIVADOS =====================
 
     private Servico buscarServicoById(Long id) {
         try {
@@ -405,8 +406,6 @@ public class ServicoService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // ===================== SALVAR (INSERT / UPDATE) =====================
-
     @Transactional
     public Servico salvar(Servico servico) {
         if (servico.getId() != null) {
@@ -415,7 +414,7 @@ public class ServicoService {
             return daoController.insert(servico);
         }
     }
-    
+
     private List<Servico> buscarServicosPagosFinalizadosPorDataCadastroEntre(LocalDateTime inicio) {
         return daoController
                 .select()
@@ -426,7 +425,7 @@ public class ServicoService {
                 .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicio)
                 .list();
     }
-    
+
     private List<Servico> buscarServicosPagosFinalizadosPorDataCadastroEntre(LocalDateTime inicio, LocalDateTime fim) {
         return daoController
                 .select()
@@ -438,42 +437,40 @@ public class ServicoService {
                 .list();
     }
 
-
     @Transactional(readOnly = true)
     public List<NomeValorDTO> listarNomeValorMesAtual() {
 
-    	LocalDate hoje = LocalDate.now(clock);
-    	YearMonth mesAtual = YearMonth.from(hoje);
-    	LocalDateTime inicioMes = mesAtual.atDay(1).atStartOfDay();
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+        LocalDateTime inicioMes = mesAtual.atDay(1).atStartOfDay();
 
-    	List<Servico> servicos = daoController
-    			.select()
-    			.from(Servico.class)
-    			.leftJoin("pessoa")
-    			.join("usuario")
-    			.where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-    			.where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
-    			.where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicioMes)
-    			.orderBy("valor", false)
-    			.list();
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .leftJoin("pessoa")
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicioMes)
+                .orderBy("valor", false)
+                .list();
 
-    	List<NomeValorDTO> retorno = new ArrayList<>();
+        List<NomeValorDTO> retorno = new ArrayList<>();
 
+        for (Servico ser : servicos) {
+            String nome = "Sem pessoa";
+            if (ser.getPessoa() != null) {
+                nome = ser.getPessoa().getNome();
+            }
 
-    	for (Servico ser : servicos) {
-    		String nome = "Sem pessoa";
-    		if (ser.getPessoa() != null ) {
-    			nome = ser.getPessoa().getNome();
-    		}
+            BigDecimal valor = ser.getValor();
 
-    		BigDecimal valor = ser.getValor();
+            retorno.add(new NomeValorDTO(nome, valor));
+        }
 
-    		retorno.add(new NomeValorDTO(nome, valor));
-    	}
-
-    	return retorno;
+        return retorno;
     }
-    
+
     public List<NomeValorDTO> listarNomeValorMesAtual(String mesAno) {
         YearMonth ym = parseMesAno(mesAno);
         LocalDateTime inicioMes = ym.atDay(1).atStartOfDay();
@@ -530,7 +527,7 @@ public class ServicoService {
         }
         return retorno;
     }
-    
+
     @Transactional(readOnly = true)
     public long contarPessoasFinalizadasNaoPagasMesAtual() {
         LocalDate hoje = LocalDate.now(clock);
@@ -556,7 +553,7 @@ public class ServicoService {
                 .distinct()
                 .count();
     }
-    
+
     @Transactional(readOnly = true)
     public ResumoPendenciasDTO getResumoPendenciasMesAtual() {
         LocalDate hoje = LocalDate.now(clock);
@@ -589,7 +586,7 @@ public class ServicoService {
 
         return new ResumoPendenciasDTO(valorTotalNaoPago, quantidadePessoas);
     }
-    
+
     public ResumoPendenciasDTO getResumoPendenciasMesAtual(String mesAno) {
         YearMonth ym = parseMesAno(mesAno);
         LocalDateTime inicioMes = ym.atDay(1).atStartOfDay();
@@ -621,7 +618,7 @@ public class ServicoService {
 
         return new ResumoPendenciasDTO(valorTotalNaoPago, quantidadePessoas);
     }
-    
+
     private YearMonth parseMesAno(String mesAno) {
         if (mesAno == null || mesAno.isBlank()) {
             LocalDate hoje = LocalDate.now(clock);
@@ -636,6 +633,7 @@ public class ServicoService {
             return YearMonth.parse(valor, alt);
         }
     }
+
     @Transactional(readOnly = true)
     public List<PessoaRankingDTO> rankPessoasUltimos3Meses() {
 
@@ -655,11 +653,11 @@ public class ServicoService {
         for (Servico s : servicos) {
             Pessoa p = s.getPessoa();
             if (p == null || p.getId() == null) {
-                continue; 
+                continue;
             }
 
             Long pessoaId = p.getId();
-            String nome = p.getNome() ;
+            String nome = p.getNome();
 
             BigDecimal valor = s.getValor() != null
                     ? s.getValor()
@@ -675,13 +673,11 @@ public class ServicoService {
             dto.setTotal(dto.getTotal().add(valor));
         }
 
-        // Map -> List
         List<PessoaRankingDTO> ranking = new ArrayList<>();
         for (PessoaRankingDTO dto : acumulado.values()) {
             ranking.add(dto);
         }
 
-        // Ordenação: quantidade desc, depois total desc, depois nome asc
         Collections.sort(ranking, (a, b) -> {
             int c1 = Long.compare(b.getQuantidade(), a.getQuantidade());
             if (c1 != 0) return c1;
@@ -692,20 +688,18 @@ public class ServicoService {
             return a.getNome().compareToIgnoreCase(b.getNome());
         });
 
-
         return ranking.stream()
                 .limit(10)
                 .toList();
     }
 
-    public List<Servico> gerarRelatorio () {
-        return   daoController.select()
+    public List<Servico> gerarRelatorio() {
+        return daoController.select()
                 .from(Servico.class)
                 .join("pessoa")
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .list();
     }
-
 
 }

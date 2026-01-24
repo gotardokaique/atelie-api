@@ -1,5 +1,6 @@
 package com.gestao.api.entities;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -14,7 +15,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements UserDetails {
+public class Usuario implements UserDetails, Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -31,9 +32,9 @@ public class Usuario implements UserDetails {
     @Column(name = "usu_senha", nullable = false)
     private String senha;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "usu_role", nullable = false)
-    private RoleEnum role;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "usu_role", nullable = false)
+//    private RoleEnum role;
 
     @Column(name = "usu_ativo", nullable = false)
     private Boolean ativo = true;
@@ -44,7 +45,7 @@ public class Usuario implements UserDetails {
         this.nome = nome;
         this.email = email;
         this.senha = senha;
-        this.role = role;
+//        this.role = role;
     }
 
     public Long getId() { return id; }
@@ -59,16 +60,16 @@ public class Usuario implements UserDetails {
     public String getSenha() { return senha; }
     public void setSenha(String senha) { this.senha = senha; }
 
-    public RoleEnum getRole() { return role; }
-    public void setRole(RoleEnum role) { this.role = role; }
+//    public RoleEnum getRole() { return role; }
+//    public void setRole(RoleEnum role) { this.role = role; }
 
     public Boolean getAtivo() { return ativo; }
     public void setAtivo(Boolean ativo) { this.ativo = ativo; }
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.name()));
-    }
+//    @Override
+//    public Collection<? extends GrantedAuthority> getAuthorities() {
+//        return List.of(new SimpleGrantedAuthority(role.name()));
+//    }
 
     @Override
     public String getPassword() { return senha; }
@@ -99,4 +100,10 @@ public class Usuario implements UserDetails {
     public int hashCode() {
         return Objects.hash(id, email);
     }
+
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

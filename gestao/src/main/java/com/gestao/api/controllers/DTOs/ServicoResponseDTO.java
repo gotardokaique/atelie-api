@@ -1,5 +1,6 @@
 package com.gestao.api.controllers.DTOs;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,7 +25,7 @@ public record ServicoResponseDTO(
         LocalDateTime dataCadastro,
         Long pessoaId,
         String pessoaNome
-) {
+) implements Serializable {
 
     public static ServicoResponseDTO refactor(Servico servico) {
         return new ServicoResponseDTO(

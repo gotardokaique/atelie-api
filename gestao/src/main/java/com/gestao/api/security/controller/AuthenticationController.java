@@ -1,15 +1,15 @@
 package com.gestao.api.security.controller;
 
 import java.security.SecureRandom;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,21 +18,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.gestao.api.security.controller.RegisterUserBO;
-import com.gestao.api.controllers.DTOs.LoginRequestDTO;
-import com.gestao.api.controllers.DTOs.LoginResponseDTO;
-import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
 import com.gestao.api.controllers.DTOs.ForgotPasswordDTO;
+import com.gestao.api.controllers.DTOs.LoginRequestDTO;
+import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
 import com.gestao.api.controllers.DTOs.ResetPasswordDTO;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.security.controller.UsuarioRepository;
-import com.gestao.api.security.controller.EmailService;
-import com.gestao.api.security.controller.UsuarioServiceValidacao;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -73,12 +66,12 @@ public class AuthenticationController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto) {
+    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto, HttpServletRequest request) {
         String email = dto.email();
         String senha = dto.senha();
-        return registerBO.processarLogin(email, senha);
+        return registerBO.processarLogin(email, senha, request);
     }
-
+    
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data) {
     	

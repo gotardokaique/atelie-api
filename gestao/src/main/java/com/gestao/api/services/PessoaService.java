@@ -2,6 +2,8 @@ package com.gestao.api.services;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -17,7 +19,6 @@ import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.NotFoundException;
 import com.gestao.api.services.exceptions.ResourceNotFoundException;
 
-
 @Service
 public class PessoaService {
 
@@ -30,6 +31,10 @@ public class PessoaService {
     // ===================== CRIAR =====================
 
     @Transactional
+    @CacheEvict(
+            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
+            allEntries = true
+    )
     public void criarPessoa(PessoaDTO dto) {
 
         String nomeLimpo = limparNome(dto.nome());
@@ -48,12 +53,15 @@ public class PessoaService {
         pessoa.setUsuario(usuarioRef);
 
         salvar(pessoa);
-
     }
 
     // ===================== LISTAR =====================
 
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = "PESSOAS_TODAS",
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public List<PessoaDTO> listarTodasPessoas() {
         List<Pessoa> pessoas = daoController
                 .select()
@@ -66,9 +74,13 @@ public class PessoaService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = "PESSOAS_CLIENTES",
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
+    )
     public List<PessoaResumoDTO> listarClientesDoUsuario() {
         List<Pessoa> pessoas = daoController
-                .select("id","nome")
+                .select("id", "nome")
                 .from(Pessoa.class)
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
@@ -81,8 +93,12 @@ public class PessoaService {
     // ===================== BUSCAR POR ID =====================
 
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = "PESSOA_BY_ID",
+            key = "T(com.gestao.api.context.UserContext).getIdUsuario() + ':' + #id"
+    )
     public PessoaDTO buscarPessoaPorId(Long id) {
-		Pessoa pessoa;
+        Pessoa pessoa;
         try {
             pessoa = daoController
                     .select()
@@ -93,8 +109,7 @@ public class PessoaService {
 
             return PessoaDTO.refactor(pessoa);
         } catch (NotFoundException e) {
-        	pessoa = new Pessoa();
-        	
+            pessoa = new Pessoa();
             return PessoaDTO.refactor(pessoa);
         }
     }
@@ -102,6 +117,10 @@ public class PessoaService {
     // ===================== ATUALIZAR =====================
 
     @Transactional
+    @CacheEvict(
+            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
+            allEntries = true
+    )
     public void atualizarPessoa(Long id, PessoaDTO dto) {
 
         Pessoa pessoaExistente = buscarPessoaById(id);
@@ -120,12 +139,15 @@ public class PessoaService {
         pessoaExistente.setMedidas(medidasLimpas);
 
         salvar(pessoaExistente);
-
     }
 
     // ===================== DELETAR =====================
 
     @Transactional
+    @CacheEvict(
+            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
+            allEntries = true
+    )
     public void deletarPessoa(Long id) {
         Pessoa pessoaExistente = buscarPessoaById(id);
         daoController.delete(pessoaExistente);
@@ -183,6 +205,10 @@ public class PessoaService {
     // ===================== SALVAR (INSERT / UPDATE) =====================
 
     @Transactional
+    @CacheEvict(
+            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
+            allEntries = true
+    )
     public Pessoa salvar(Pessoa pessoa) {
         if (pessoa.getId() != null) {
             return daoController.update(pessoa);

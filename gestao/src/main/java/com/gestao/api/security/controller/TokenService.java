@@ -1,10 +1,5 @@
 package com.gestao.api.security.controller;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.gestao.api.entities.Usuario;
@@ -15,28 +10,63 @@ import jakarta.servlet.http.HttpServletRequest;
 @Service
 public class TokenService {
 
-    @Autowired
-    private JwtTokenProvider tokenProvider;
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final int MAX_TOKEN_LENGTH = 2048;
+
+    private final JwtTokenProvider tokenProvider;
+
+    public TokenService(JwtTokenProvider tokenProvider) {
+        this.tokenProvider = tokenProvider;
+    }
 
     public String generateToken(Usuario user) {
+        if (user == null || user.getEmail() == null) {
+            throw new IllegalArgumentException("Usuário inválido para geração de token");
+        }
         return tokenProvider.generateTokenFromUsername(user.getEmail());
     }
 
     public String validateToken(String token) {
-        if (tokenProvider.validateToken(token)) {
-            return tokenProvider.getUsernameFromJWT(token);
+        if (token == null || token.isBlank()) {
+            return null;
         }
-        return null;
-    }
 
-    private Instant genExpirationDate() {
-        return LocalDateTime.now().plusHours(2).toInstant(ZoneOffset.of("-03:00"));
+        if (token.length() > MAX_TOKEN_LENGTH) {
+            return null;
+        }
+
+        if (!tokenProvider.validateToken(token)) {
+            return null;
+        }
+
+        return tokenProvider.getUsernameFromJWT(token);
     }
 
     public String getTokenFromRequest(HttpServletRequest request) {
-        var authHeader = request.getHeader("Authorization");
-        if (authHeader == null)
+        if (request == null) {
             return null;
-        return authHeader.replace("Bearer ", "");
+        }
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null) {
+            return null;
+        }
+
+        authHeader = authHeader.trim();
+        if (authHeader.length() < BEARER_PREFIX.length()) {
+            return null;
+        }
+
+        if (!authHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            return null;
+        }
+
+        String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+
+        if (token.isEmpty() || token.length() > MAX_TOKEN_LENGTH) {
+            return null;
+        }
+
+        return token;
     }
 }

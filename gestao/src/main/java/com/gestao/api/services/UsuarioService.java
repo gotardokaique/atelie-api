@@ -52,7 +52,7 @@ public class UsuarioService {
         user.setNome(registroDTO.nome().trim());
         user.setEmail(emailNormalizado);
         user.setSenha(passwordEncoder.encode(registroDTO.senha()));
-        user.setRole(RoleEnum.ROLE_USER);
+//        user.setRole(RoleEnum.ROLE_USER);
 
         salvar(user);
     }

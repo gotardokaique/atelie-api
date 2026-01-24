@@ -15,7 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.enuns.RoleEnum;
+import com.gestao.api.security.controller.SessionService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -27,20 +27,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final int MAX_TOKEN_LENGTH = 2048;
+
     private final JwtTokenProvider tokenProvider;
     private final DAOController daoController;
+    private final SessionService sessionService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, DAOController daoController) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
+                                   DAOController daoController,
+                                   SessionService sessionService) {
         this.tokenProvider = tokenProvider;
         this.daoController = daoController;
+        this.sessionService = sessionService;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
         String path = request.getRequestURI();
+
+        // 1) Bypass rotas de auth
         if (path.startsWith("/api/v1/auth/")) {
             logger.debug("JWT FILTER: Bypass para path de autenticação: {}", path);
             filterChain.doFilter(request, response);
@@ -48,61 +58,114 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
+            // 2) Se já tem auth setado, não sobrescreve
+            if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 3) Extrai token do header Authorization
             String jwt = getJwtFromRequest(request);
+            if (!StringUtils.hasText(jwt)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                String username = tokenProvider.getUsernameFromJWT(jwt); // normalmente email
+            if (jwt.length() > MAX_TOKEN_LENGTH) {
+                logger.warn("JWT com tamanho inválido ({} chars)", jwt.length());
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-                UserDetails userDetails = carregarUserDetails(username);
-                if (userDetails != null) {
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
+            // 4) Valida assinatura / expiração
+            if (!tokenProvider.validateToken(jwt)) {
+                logger.debug("JWT inválido ou expirado");
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
+            String username = tokenProvider.getUsernameFromJWT(jwt);
+            if (!StringUtils.hasText(username)) {
+                logger.debug("JWT sem subject válido");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 5) Carrega usuário
+            Usuario usuario = carregarUsuario(username);
+            if (usuario == null) {
+                logger.warn("JWT válido, mas usuário não encontrado: {}", username);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 6) Confere sessão no Redis
+            String tokenSalvo = sessionService.getToken(usuario.getId());
+            if (tokenSalvo == null) {
+                logger.debug("Sessão expirada para usuário id={}. JWT rejeitado.", usuario.getId());
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            if (!jwt.equals(tokenSalvo)) {
+                logger.warn("JWT não coincide com token em sessão para usuário id={}", usuario.getId());
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 7) SLIDING EXPIRATION: renova a sessão para mais 1h
+            sessionService.refreshSession(usuario.getId());
+
+            // 8) Autentica no contexto de segurança
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            usuario,
+                            null,
+                            usuario.getAuthorities()
                     );
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                } else {
-                    logger.warn("JWT válido mas usuário não encontrado: {}", username);
-                }
-            }
+            authentication.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request)
+            );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
         } catch (Exception ex) {
-            logger.error("Não foi possível definir a autenticação do usuário no contexto de segurança", ex);
+            logger.error("Erro ao processar autenticação JWT", ex);
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
+        String authHeader = request.getHeader("Authorization");
 
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
+        if (!StringUtils.hasText(authHeader)) {
+            return null;
         }
 
-        return null;
+        authHeader = authHeader.trim();
+        if (authHeader.length() < BEARER_PREFIX.length()) {
+            return null;
+        }
+
+        if (!authHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            return null;
+        }
+
+        String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+        return StringUtils.hasText(token) ? token : null;
     }
 
-    /**
-     * Carrega o Usuario direto via DAOController e retorna o próprio Usuario,
-     * que implementa UserDetails e contém o id necessário no contexto.
-     */
-    private UserDetails carregarUserDetails(String username) {
+    private Usuario carregarUsuario(String username) {
         try {
-            Usuario usuario = daoController
+            return daoController
                     .select()
                     .from(Usuario.class)
                     .where("email", Condicao.EQUAL, username.toLowerCase().trim())
                     .limit(1)
                     .one();
-
-            return usuario;
-
         } catch (Exception e) {
             logger.warn("Erro ao carregar usuário '{}' para autenticação JWT: {}", username, e.getMessage());
             return null;

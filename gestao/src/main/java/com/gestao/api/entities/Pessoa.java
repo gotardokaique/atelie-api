@@ -1,5 +1,7 @@
 package com.gestao.api.entities;
 
+import java.io.Serializable;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,7 +15,7 @@ import jakarta.validation.constraints.NotBlank;
 
 @Entity
 @Table(name = "pessoas")
-public class Pessoa {
+public class Pessoa implements Serializable{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

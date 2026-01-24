@@ -1,17 +1,18 @@
 package com.gestao.api.controllers.DTOs;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.gestao.api.entities.Pessoa;
 
-public record PessoaDTO(
+public record PessoaDTO (
         Long id,
         String nome,
         String telefone,
         String medidas
-) {
+) implements Serializable{
 
     public static PessoaDTO refactor(Pessoa pessoa) {
 

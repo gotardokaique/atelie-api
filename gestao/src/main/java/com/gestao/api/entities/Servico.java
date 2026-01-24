@@ -1,5 +1,6 @@
 package com.gestao.api.entities;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,13 +23,13 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "servicos")
-public class Servico {
+public class Servico implements Serializable{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "pessoa_id")
     private Pessoa pessoa;
 
