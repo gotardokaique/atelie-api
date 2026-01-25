@@ -31,6 +31,8 @@ import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.JwtAuthenticationFilter;
 
+import jakarta.annotation.PostConstruct;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -201,5 +203,11 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+    
+    @PostConstruct
+    public void logCorsOrigins() {
+        System.out.println(">>> CORS allowedOrigins = " + allowedOrigins);
+        System.out.println(">>> requireHttps = " + requireHttps);
     }
 }
