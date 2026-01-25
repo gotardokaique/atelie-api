@@ -60,23 +60,18 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    AuthenticationProvider authenticationProvider) throws Exception {
 
-        http
-            // JWT + stateless => CSRF desabilitado
-            .csrf(AbstractHttpConfigurer::disable)
+    	http
+        // JWT + stateless => CSRF desabilitado
+        .csrf(AbstractHttpConfigurer::disable)
 
-            // Usa CorsConfigurationSource abaixo
-            .cors(Customizer.withDefaults())
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            // Stateless: sem sessão de servidor
-            .sessionManagement(sess ->
-                sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-            // Não usamos essas features em API stateless
-            .formLogin(AbstractHttpConfigurer::disable)
-            .httpBasic(AbstractHttpConfigurer::disable)
-            .logout(AbstractHttpConfigurer::disable)
-            .rememberMe(AbstractHttpConfigurer::disable);
-
+        .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .formLogin(AbstractHttpConfigurer::disable)
+        .httpBasic(AbstractHttpConfigurer::disable)
+        .logout(AbstractHttpConfigurer::disable)
+        .rememberMe(AbstractHttpConfigurer::disable);
+    	
         // HTTPS obrigatório (em produção) usando API nova
         if (requireHttps) {
             http.redirectToHttps(Customizer.withDefaults());
