@@ -49,7 +49,10 @@ public class RegisterUserBO {
     // Pode ser mais longo que o bloqueio (ex: 30 min)
     private static final long TENTATIVA_TTL_MINUTOS = 30;
 
-    private static final String LOGIN_ATTEMPT_KEY_PREFIX = "login:attempt:";
+    // Prefixos distintos para separar EMAIL e IP+EMAIL
+    private static final String LOGIN_ATTEMPT_EMAIL_PREFIX    = "login:attempt:email:";
+    private static final String LOGIN_ATTEMPT_IP_EMAIL_PREFIX = "login:attempt:ip_email:";
+
     private static final java.util.regex.Pattern REGEX_EMAIL =
             java.util.regex.Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
 
@@ -77,12 +80,15 @@ public class RegisterUserBO {
 
     // ===================== HELPERS REDIS (TENTATIVAS) =====================
 
-    private String gerarChaveTentativa(String email) {
-        return LOGIN_ATTEMPT_KEY_PREFIX + email;
+    private String gerarChaveTentativaEmail(String email) {
+        return LOGIN_ATTEMPT_EMAIL_PREFIX + email;
     }
 
-    private TentativaLogin carregarTentativa(String email) {
-        String key = gerarChaveTentativa(email);
+    private String gerarChaveTentativaIpEmail(String email, String ip) {
+        return LOGIN_ATTEMPT_IP_EMAIL_PREFIX + ip + ":" + email;
+    }
+
+    private TentativaLogin carregarTentativaPorChave(String key) {
         Map<Object, Object> map = redisTemplate.opsForHash().entries(key);
 
         TentativaLogin t = new TentativaLogin();
@@ -120,9 +126,7 @@ public class RegisterUserBO {
         return t;
     }
 
-    private void salvarTentativa(String email, TentativaLogin tentativa) {
-        String key = gerarChaveTentativa(email);
-
+    private void salvarTentativaPorChave(String key, TentativaLogin tentativa) {
         redisTemplate.opsForHash().put(key, "tentativas", String.valueOf(tentativa.tentativas));
         redisTemplate.opsForHash().put(key, "ultimaTentativa", tentativa.ultimaTentativa.toString());
 
@@ -136,9 +140,36 @@ public class RegisterUserBO {
         redisTemplate.expire(key, TENTATIVA_TTL_MINUTOS, TimeUnit.MINUTES);
     }
 
-    private void resetTentativa(String email) {
-        String key = gerarChaveTentativa(email);
+    private void resetTentativaPorChave(String key) {
         redisTemplate.delete(key);
+    }
+
+    // Wrappers específicos para EMAIL
+
+    private TentativaLogin carregarTentativaEmail(String email) {
+        return carregarTentativaPorChave(gerarChaveTentativaEmail(email));
+    }
+
+    private void salvarTentativaEmail(String email, TentativaLogin tentativa) {
+        salvarTentativaPorChave(gerarChaveTentativaEmail(email), tentativa);
+    }
+
+    private void resetTentativaEmail(String email) {
+        resetTentativaPorChave(gerarChaveTentativaEmail(email));
+    }
+
+    // Wrappers específicos para IP + EMAIL
+
+    private TentativaLogin carregarTentativaIpEmail(String email, String ip) {
+        return carregarTentativaPorChave(gerarChaveTentativaIpEmail(email, ip));
+    }
+
+    private void salvarTentativaIpEmail(String email, String ip, TentativaLogin tentativa) {
+        salvarTentativaPorChave(gerarChaveTentativaIpEmail(email, ip), tentativa);
+    }
+
+    private void resetTentativaIpEmail(String email, String ip) {
+        resetTentativaPorChave(gerarChaveTentativaIpEmail(email, ip));
     }
 
     // ===================== REGRAS DE NEGÓCIO =====================
@@ -182,7 +213,7 @@ public class RegisterUserBO {
         return isUserCadastrado;
     }
 
-    // ===================== LOGIN (AGORA COM TENTATIVA EM REDIS) =====================
+    // ===================== LOGIN (AGORA COM EMAIL + IP+EMAIL EM REDIS) =====================
 
     public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request) {
         String email = emailRaw.trim().toLowerCase();
@@ -193,23 +224,43 @@ public class RegisterUserBO {
         }
 
         String clientIp = extrairIpCliente(request);
-        TentativaLogin tentativa = carregarTentativa(email);
-        tentativa.ultimaTentativa = LocalDateTime.now();
+        LocalDateTime agora = LocalDateTime.now();
 
-        if (tentativa.bloqueadoAte != null && tentativa.bloqueadoAte.isAfter(LocalDateTime.now())) {
-            logger.warn("Login bloqueado para {} até {} (IP: {})", email, tentativa.bloqueadoAte, clientIp);
-            salvarTentativa(email, tentativa); // atualiza ultimaTentativa
+        // 1) Carrega tentativas por email e por ip+email
+        TentativaLogin tentativaEmail = carregarTentativaEmail(email);
+        TentativaLogin tentativaIpEmail = carregarTentativaIpEmail(email, clientIp);
+
+        tentativaEmail.ultimaTentativa = agora;
+        tentativaIpEmail.ultimaTentativa = agora;
+
+        // 2) Verifica se está bloqueado em QUALQUER dimensão
+        boolean bloqueadoPorEmail = tentativaEmail.bloqueadoAte != null && tentativaEmail.bloqueadoAte.isAfter(agora);
+        boolean bloqueadoPorIpEmail = tentativaIpEmail.bloqueadoAte != null && tentativaIpEmail.bloqueadoAte.isAfter(agora);
+
+        if (bloqueadoPorEmail || bloqueadoPorIpEmail) {
+            logger.warn("Login bloqueado para {} até Email[{}], IP+Email[{}] (IP: {})",
+                    email,
+                    tentativaEmail.bloqueadoAte,
+                    tentativaIpEmail.bloqueadoAte,
+                    clientIp);
+
+            // Atualiza ultimaTentativa em ambos
+            salvarTentativaEmail(email, tentativaEmail);
+            salvarTentativaIpEmail(email, clientIp, tentativaIpEmail);
+
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("message", "Parece que você esqueceu sua senha... Tome um café e refresque a mente."));
         }
 
         try {
+            // 3) Tenta autenticar
             var authToken = new UsernamePasswordAuthenticationToken(email, senha);
             Authentication auth = authenticationManager.authenticate(authToken);
             Usuario user = (Usuario) auth.getPrincipal();
 
-            // Reset tentativas ao logar com sucesso
-            resetTentativa(email);
+            // Login OK -> reset tentativas em ambas dimensões
+            resetTentativaEmail(email);
+            resetTentativaIpEmail(email, clientIp);
 
             var jwt = tokenService.generateToken(user);
             sessionService.storeToken(user.getId(), jwt);
@@ -218,16 +269,31 @@ public class RegisterUserBO {
             return ResponseEntity.ok(new LoginResponseDTO(jwt));
 
         } catch (BadCredentialsException | org.springframework.security.core.userdetails.UsernameNotFoundException e) {
-            tentativa.tentativas++;
-            if (tentativa.tentativas >= MAX_TENTATIVAS_LOGIN) {
-                tentativa.bloqueadoAte = LocalDateTime.now().plusMinutes(BLOQUEIO_MINUTOS);
-                logger.warn("Conta bloqueada para {} até {} (IP: {})",
-                        email, tentativa.bloqueadoAte, clientIp);
-            }
-            salvarTentativa(email, tentativa);
 
-            logger.warn("Credenciais inválidas para {} (IP: {}): tentativa {} de {}. Motivo: {}",
-                    email, clientIp, tentativa.tentativas, MAX_TENTATIVAS_LOGIN, e.getMessage());
+            // 4) Login falhou: incrementa as DUAS dimensões
+            tentativaEmail.tentativas++;
+            tentativaIpEmail.tentativas++;
+
+            if (tentativaEmail.tentativas >= MAX_TENTATIVAS_LOGIN
+                    || tentativaIpEmail.tentativas >= MAX_TENTATIVAS_LOGIN) {
+
+                LocalDateTime bloqueio = agora.plusMinutes(BLOQUEIO_MINUTOS);
+                tentativaEmail.bloqueadoAte = bloqueio;
+                tentativaIpEmail.bloqueadoAte = bloqueio;
+
+                logger.warn("Conta bloqueada para {} até {} (IP: {}, tentativasEmail={}, tentativasIpEmail={})",
+                        email, bloqueio, clientIp,
+                        tentativaEmail.tentativas, tentativaIpEmail.tentativas);
+            }
+
+            salvarTentativaEmail(email, tentativaEmail);
+            salvarTentativaIpEmail(email, clientIp, tentativaIpEmail);
+
+            logger.warn("Credenciais inválidas para {} (IP: {}): tentativasEmail={} tentativasIpEmail={} de {}. Motivo: {}",
+                    email, clientIp,
+                    tentativaEmail.tentativas, tentativaIpEmail.tentativas,
+                    MAX_TENTATIVAS_LOGIN,
+                    e.getMessage());
 
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)

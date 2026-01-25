@@ -50,9 +50,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // 1) Bypass rotas de auth
-        if (path.startsWith("/api/v1/auth/")) {
-            logger.debug("JWT FILTER: Bypass para path de autenticação: {}", path);
+        if (isPublicAuthPath(path)) {
+            logger.debug("JWT FILTER: Bypass para path de autenticação pública: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
@@ -170,5 +169,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             logger.warn("Erro ao carregar usuário '{}' para autenticação JWT: {}", username, e.getMessage());
             return null;
         }
+    }
+    
+    private boolean isPublicAuthPath(String path) {
+        return path.equals("/api/v1/auth/login")
+            || path.equals("/api/v1/auth/register")
+            || path.equals("/api/v1/auth/refresh");
     }
 }
