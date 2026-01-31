@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +33,7 @@ import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
 import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
+import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
@@ -719,6 +721,52 @@ public class ServicoService {
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .list();
+    }
+    
+    @Transactional(readOnly = true)
+    public List<ServicosPorMesDTO> getServicosCriadosUltimos6MesesAgrupado() {
+
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+
+        // janela: mês atual e mais 5 para trás
+        YearMonth inicioYm = mesAtual.minusMonths(5);
+
+        LocalDateTime inicio = inicioYm.atDay(1).atStartOfDay();
+        LocalDateTime fimExclusivo = mesAtual.plusMonths(1).atDay(1).atStartOfDay(); 
+
+        Map<YearMonth, Long> contagem = new LinkedHashMap<>();
+        for (int i = 0; i < 6; i++) {
+            YearMonth ym = inicioYm.plusMonths(i);
+            contagem.put(ym, 0L);
+        }
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("dataCadastro", Condicao.BETWEEN, inicio, fimExclusivo)
+                .list();
+
+        // 3) Agrupa em memória por YearMonth
+        for (Servico ser : servicos) {
+            if (ser.getDataCadastro() == null) continue;
+            YearMonth ym = YearMonth.from(ser.getDataCadastro());
+            
+            if (ym.isBefore(inicioYm) || ym.isAfter(mesAtual)) continue;
+            contagem.put(ym, contagem.getOrDefault(ym, 0L) + 1L);
+        }
+
+        // 4) Formata "MM/yyyy"
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/yyyy");
+
+        List<ServicosPorMesDTO> out = new ArrayList<>();
+        for (var e : contagem.entrySet()) {
+            out.add(new ServicosPorMesDTO(e.getKey().format(fmt), e.getValue()));
+        }
+
+        return out;
     }
 
 }
