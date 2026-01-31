@@ -261,22 +261,40 @@ public class ServicoService {
 
     @Transactional(readOnly = true)
     public DashboardStatsDTO getDashboardStats() {
+        // Estoque atual (sem data)
         long pendenteCount = countByStatus(StatusServico.PENDENTE);
         long emAndamentoCount = countByStatus(StatusServico.EM_ANDAMENTO);
         long urgenteCount = countByStatus(StatusServico.URGENTE);
 
         LocalDate hoje = LocalDate.now(clock);
-        LocalDate inicio = hoje.minusDays(6);
-        LocalDate fim = hoje;
+        YearMonth mesAtual = YearMonth.from(hoje);
 
-        long finalizadosUltimos7DiasCount = countFinalizadosEntre(inicio, fim);
+        LocalDate inicioMesDate = mesAtual.atDay(1);
+        LocalDate fimMesDate = mesAtual.atEndOfMonth();
+
+        long finalizadosNoMesCount = buscarServicosFinalizadosEntre(inicioMesDate, fimMesDate).size();
 
         return new DashboardStatsDTO(
                 pendenteCount,
                 emAndamentoCount,
                 urgenteCount,
-                finalizadosUltimos7DiasCount
+                finalizadosNoMesCount
         );
+    }
+
+    
+    @Transactional(readOnly = true)
+    private long countByStatusNoMes(StatusServico status, LocalDateTime inicio, LocalDateTime fim) {
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusServico", Condicao.EQUAL, status)
+                .where("dataCadastro", Condicao.BETWEEN, inicio, fim)
+                .list();
+
+        return servicos.size();
     }
 
     @Transactional(readOnly = true)
@@ -422,6 +440,7 @@ public class ServicoService {
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
                 .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicio)
                 .list();
     }
