@@ -28,6 +28,8 @@ public class QueryBuilder {
     private String rootAlias = "c";
     private Class<?> entityClass;
     private String entityName;
+    private boolean hasOrderBy = false;
+
 
     private boolean projection = false;
     private final List<String> selectedRawFields = new ArrayList<>();
@@ -42,6 +44,7 @@ public class QueryBuilder {
         params.clear();
         hasWhere = false;
         rootAlias = "c";
+        hasOrderBy = false; // <<<
         entityClass = null;
         entityName = null;
         projection = false;
@@ -239,13 +242,66 @@ public class QueryBuilder {
         return this;
     }
 
+    private void appendOrderByPrefix() {
+        if (!hasOrderBy) {
+            jpql.append("ORDER BY ");
+            hasOrderBy = true;
+        } else {
+            jpql.append(", ");
+        }
+    }
+
     public QueryBuilder orderBy(String campo, boolean asc) {
         String f = qualifyField(campo);
-        jpql.append("ORDER BY ")
-            .append(f)
+        appendOrderByPrefix();
+        jpql.append(f)
             .append(asc ? " ASC " : " DESC ");
         return this;
     }
+
+    /**
+     * Permite ORDER BY com CASE WHEN, CURRENT_DATE, funções, etc.
+     * Ex: orderByRaw("CASE WHEN c.urgente = true THEN 0 ELSE 1 END ASC")
+     */
+    public QueryBuilder orderByRaw(String expression, Object... valores) {
+        if (expression == null || expression.isBlank()) {
+            throw new IllegalArgumentException("orderByRaw expression não pode ser nula/vazia");
+        }
+
+        String expr = expression.trim();
+
+        // Regex: pega apenas "?" que NÃO é seguido de dígito (ou seja, placeholder ainda não indexado)
+        final String PLACEHOLDER = "\\?(?!\\d)";
+
+        if (valores != null && valores.length > 0) {
+            for (Object v : valores) {
+                int idx = params.size() + 1;
+
+                // precisa existir um placeholder "?" não indexado para cada valor
+                if (!expr.matches(".*" + PLACEHOLDER + ".*")) {
+                    throw new IllegalArgumentException(
+                        "orderByRaw: faltou placeholder '?' para o valor " + idx + ". Expr: " + expr
+                    );
+                }
+
+                // troca o primeiro "?" não indexado por "?{idx}"
+                expr = expr.replaceFirst(PLACEHOLDER, "?" + idx);
+                params.add(v);
+            }
+        }
+
+        // se ainda existir "?" não indexado, faltou passar valores
+        if (expr.matches(".*" + PLACEHOLDER + ".*")) {
+            throw new IllegalArgumentException("orderByRaw: sobrou placeholder '?' sem valor: " + expr);
+        }
+
+        appendOrderByPrefix();
+        jpql.append(expr).append(" ");
+        return this;
+    }
+
+
+
 
     public QueryBuilder limit(int max) {
         if (max <= 0) {
