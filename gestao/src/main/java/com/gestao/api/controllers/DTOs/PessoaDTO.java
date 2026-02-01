@@ -1,6 +1,7 @@
 package com.gestao.api.controllers.DTOs;
 
 import java.io.Serializable;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -11,7 +12,8 @@ public record PessoaDTO (
         Long id,
         String nome,
         String telefone,
-        String medidas
+        String medidas,
+        Date dataCadastro
 ) implements Serializable{
 
     public static PessoaDTO refactor(Pessoa pessoa) {
@@ -20,8 +22,9 @@ public record PessoaDTO (
                 pessoa.getId(),
                 pessoa.getNome(),
                 pessoa.getTelefone(),
-                pessoa.getMedidas()
-        );
+                pessoa.getMedidas(),
+                pessoa.getDataCadastro()
+                );
     }
 
     public static List<PessoaDTO> refactor(List<Pessoa> pessoas) {
