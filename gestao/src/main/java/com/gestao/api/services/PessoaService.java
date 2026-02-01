@@ -1,6 +1,6 @@
 package com.gestao.api.services;
 
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -48,7 +48,7 @@ public class PessoaService {
         pessoa.setNome(nomeLimpo);
         pessoa.setTelefone(telefoneLimpo);
         pessoa.setMedidas(medidasLimpas);
-        pessoa.setDataCadastro(new Date());
+//        pessoa.setDataCadastro(new LocalDate().now()));
 
         Usuario usuarioRef = new Usuario();
         usuarioRef.setId(UserContext.getIdUsuario());
@@ -70,6 +70,7 @@ public class PessoaService {
                 .from(Pessoa.class)
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .orderBy("nome", true)
                 .list();
 
         return PessoaDTO.refactor(pessoas);

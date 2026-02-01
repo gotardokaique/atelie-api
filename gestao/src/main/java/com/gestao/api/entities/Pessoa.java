@@ -1,10 +1,7 @@
 package com.gestao.api.entities;
 
 import java.io.Serializable;
-import java.util.Date;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 
@@ -40,9 +38,9 @@ public class Pessoa implements Serializable{
     @Column(name = "medidas")
     private String medidas;
     
-    @JdbcTypeCode(SqlTypes.DATE)
+
     @Column(name = "pes_datacadastro", updatable = false)
-    private Date dataCadastro;
+    private LocalDate dataCadastro;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
@@ -56,11 +54,11 @@ public class Pessoa implements Serializable{
         this.id = id;
     }
     
-    public Date getDataCadastro() {
+    public LocalDate getDataCadastro() {
 		return dataCadastro;
 	}
 
-	public void setDataCadastro(Date dataCadastro) {
+	public void setDataCadastro(LocalDate dataCadastro) {
 		this.dataCadastro = dataCadastro;
 	}
 
@@ -102,5 +100,12 @@ public class Pessoa implements Serializable{
 
     public void setUsuario(Usuario usuario) {
         this.usuario = usuario;
+    }
+    
+    @PrePersist
+    void prePersist() {
+        if (dataCadastro == null) {
+            dataCadastro = LocalDate.now();
+        }
     }
 }
