@@ -220,5 +220,22 @@ public class PessoaService {
         }
     }
     
-    
+    @Transactional(readOnly = true)
+    public int getQtdClientesCadastradosMesAtual() {
+
+        LocalDate hoje = LocalDate.now();
+        LocalDate inicioMes = hoje.withDayOfMonth(1);
+        LocalDate fimMes = hoje.withDayOfMonth(hoje.lengthOfMonth());
+
+        List<Pessoa> pessoasMes = daoController
+                .select()
+                .from(Pessoa.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("dataCadastro", Condicao.GREATER_OR_EQUAL, inicioMes)
+                .where("dataCadastro", Condicao.LESS_OR_EQUAL, fimMes)
+                .list();
+
+        return pessoasMes.size();
+    }
 }
