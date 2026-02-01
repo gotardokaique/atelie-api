@@ -1,6 +1,10 @@
 package com.gestao.api.entities;
 
 import java.io.Serializable;
+import java.util.Date;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,7 +21,9 @@ import jakarta.validation.constraints.NotBlank;
 @Table(name = "pessoas")
 public class Pessoa implements Serializable{
 
-    @Id
+    private static final long serialVersionUID = 1L;
+
+	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -28,23 +34,35 @@ public class Pessoa implements Serializable{
     @Column(name = "idade")
     private Integer idade;
 
-    @Column(name = "telefone")
+	@Column(name = "telefone")
     private String telefone;
 
     @Column(name = "medidas")
     private String medidas;
+    
+    @JdbcTypeCode(SqlTypes.DATE)
+    @Column(name = "pes_datacadastro", updatable = false)
+    private Date dataCadastro;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
-    public Long getId() {
+    public Long getId() {	
         return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
+    
+    public Date getDataCadastro() {
+		return dataCadastro;
+	}
+
+	public void setDataCadastro(Date dataCadastro) {
+		this.dataCadastro = dataCadastro;
+	}
 
     public String getNome() {
         return nome;

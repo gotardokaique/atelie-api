@@ -1,5 +1,6 @@
 package com.gestao.api.services;
 
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -11,8 +12,8 @@ import org.springframework.util.StringUtils;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
-import com.gestao.api.db.DAOController;
 import com.gestao.api.db.Condicao;
+import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.services.exceptions.BusinessException;
@@ -47,6 +48,7 @@ public class PessoaService {
         pessoa.setNome(nomeLimpo);
         pessoa.setTelefone(telefoneLimpo);
         pessoa.setMedidas(medidasLimpas);
+        pessoa.setDataCadastro(new Date());
 
         Usuario usuarioRef = new Usuario();
         usuarioRef.setId(UserContext.getIdUsuario());
@@ -216,4 +218,6 @@ public class PessoaService {
             return daoController.insert(pessoa);
         }
     }
+    
+    
 }
