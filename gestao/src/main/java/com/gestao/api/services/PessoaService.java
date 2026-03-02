@@ -19,6 +19,7 @@ import com.gestao.api.entities.Usuario;
 import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.NotFoundException;
 import com.gestao.api.services.exceptions.ResourceNotFoundException;
+import com.gestao.api.db.QueryBuilder;
 
 @Service
 public class PessoaService {
@@ -43,6 +44,7 @@ public class PessoaService {
         String medidasLimpas = limparMedidas(dto.medidas());
 
         validarDadosPessoa(nomeLimpo, telefoneLimpo);
+        verificarTelefoneExistente(telefoneLimpo, null);
 
         Pessoa pessoa = new Pessoa();
         pessoa.setNome(nomeLimpo);
@@ -133,6 +135,7 @@ public class PessoaService {
         String medidasLimpas = limparMedidas(dto.medidas());
 
         validarDadosPessoa(nomeLimpo, telefoneLimpo);
+        verificarTelefoneExistente(telefoneLimpo, id);
 
         if (nomeLimpo != null) {
             pessoaExistente.setNome(nomeLimpo);
@@ -202,6 +205,21 @@ public class PessoaService {
 
         if (telefoneLimpo.length() < 8 || telefoneLimpo.length() > 15) {
             throw new BusinessException("Telefone deve ter entre 8 e 15 dígitos.");
+        }
+    }
+
+    private void verificarTelefoneExistente(String telefone, Long id) {
+        QueryBuilder query = daoController
+                .select()
+                .from(Pessoa.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("telefone", Condicao.EQUAL, telefone);
+
+        List<Pessoa> existing = query.list();
+
+        if (!existing.isEmpty()) {
+            throw new BusinessException("Já existe um cliente cadastrado com este número de telefone.");
         }
     }
 
