@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +26,26 @@ import com.gestao.api.services.exceptions.BusinessException;
 
 @Service
 public class AiService {
+    
+    // Constantes para evitar duplicação e erros de lint
+    private static final String TIPO = "tipo";
+    private static final String FINAL = "final";
+    private static final String PREVIEW = "preview";
+    private static final String RESPOSTA = "resposta";
+    private static final String RESUMO = "resumo";
+    private static final String CONTENT = "content";
+    private static final String FUNCTION = "function";
+    private static final String CRIAR_OS = "criar_ordem_servico";
+    private static final String EDITAR_OS = "editar_ordem_servico";
+    private static final String CADASTRAR_CLIENTE = "cadastrar_cliente";
+    private static final String CLIENTE_NOME = "cliente_nome";
+    private static final String CLIENTE_REAL_NOME = "cliente_real_nome";
+    private static final String PESSOA_ID_VALIDADO = "pessoa_id_validado";
+    private static final String DESCRICAO_SERVICO = "descricao_servico";
+    private static final String VALOR = "valor";
+    private static final String PRAZO_ENTREGA = "prazo_entrega";
+    private static final String URGENTE = "urgente";
+    private static final String OS_ID = "os_id";
 
     @Value("${xai.api.key}")
     private String xaiApiKey;
@@ -42,15 +64,43 @@ public class AiService {
 
     private static final String SYSTEM_PROMPT = """
             Você é a Lia, assistente de voz do Gestão Ateliê. 
-            Responda sempre em português brasileiro de forma ultra-objetiva e profissional.
+            Responda sempre em português brasileiro de forma curta, direta e profissional.
             
-            REGRAS CRÍTICAS DE SEGURANÇA E FLUXO:
-            1. NUNCA invente ou exiba resumos detalhados (com listas de campos, status ou valores) por conta própria.
-            2. Para QUALQUER ação de criar ou editar, você deve APENAS chamar a ferramenta (tool) correspondente. Não diga nada antes ou depois.
-            3. Se você for criar um serviço, chame 'criar_ordem_servico'. O sistema cuidará de mostrar o resumo ao usuário.
-            4. Se você for editar um serviço, chame 'editar_ordem_servico'.
-            5. NUNCA mencione termos técnicos como 'ID', 'JSON', 'PENDENTE', 'EM_PRODUCAO' ou nomes de colunas no chat.
-            6. Se não encontrar um cliente, diga apenas: 'Não encontrei o cliente [Nome]. Deseja cadastrar?'.
+            ═══════════════════════════════════════════════════════════════════════════════════
+            REGRAS CRÍTICAS DE EXTRAÇÃO (VALOR E DATA):
+            ═══════════════════════════════════════════════════════════════════════════════════
+            
+            1. VALOR: Se mencionado, SEMPRE extrair e passar no parâmetro 'valor':
+               - "valor 200" → valor=200
+               - "200 reais" → valor=200
+               - "R$ 150.50" → valor=150.50
+               - "por 100" → valor=100
+               - "custa 50" → valor=50
+               - Se NÃO houver menção explícita a valor, deixe em branco (null).
+               - ⚠️ NUNCA coloque valor dentro de descricao_servico. SEMPRE em parâmetro separado.
+            
+            2. DATA/PRAZO: Se mencionada, SEMPRE extrair e passar no parâmetro 'prazo_entrega':
+               - "15/03" → "2026-03-15" (ou próximo ano se já passou)
+               - "15-03-2026" → "2026-03-15"
+               - "próxima segunda" → converta para YYYY-MM-DD da próxima segunda-feira
+               - "amanhã" → converta para YYYY-MM-DD de amanhã
+               - "em 3 dias" → converta para YYYY-MM-DD daqui 3 dias
+               - Se NÃO houver menção explícita a data, deixe em branco (null).
+               - ⚠️ NUNCA coloque data dentro de descricao_servico. SEMPRE em parâmetro separado.
+            
+            3. DESCRIÇÃO: Deve conter APENAS o texto descritivo do serviço.
+               - NÃO inclua valor, datas, ou números de preço aqui.
+               - EXEMPLO: "ajustar bainha valor 200" → descricao="ajustar bainha", valor=200
+               - ❌ ERRADO: descricao="ajustar bainha valor 200"
+            
+            ═══════════════════════════════════════════════════════════════════════════════════
+            REGRAS DE EXECUÇÃO:
+            ═══════════════════════════════════════════════════════════════════════════════════
+            
+            4. Para QUALQUER ação de CRIAR ou EDITAR, chame APENAS a ferramenta correspondente. NÃO gere texto na resposta.
+            5. NUNCA exiba nomes de campos técnicos (ex: 'os_id', 'JSON') para o usuário.
+            6. Se não encontrar um cliente exato, o sistema tentará uma busca flexível. Não tente 'adivinhar' ou fundir nomes.
+            7. Seja ultra-objetiva. Se o usuário confirmar algo, responda apenas 'Confirmado' ou similar curto.
             """;
 
     // ─── Entrada principal ────────────────────────────────────────────────────
@@ -69,11 +119,11 @@ public class AiService {
                 Object result = executeTool(toolName, toolInput);
                 log.info("[Lia] Tool '{}' executada com sucesso.", toolName);
                 return Map.of(
-                        "tipo", "final",
-                        "resposta", formatFinalResponse(toolName, result));
+                        TIPO, FINAL,
+                        RESPOSTA, formatFinalResponse(toolName, result));
             } catch (Exception e) {
                 log.error("[Lia] Erro ao executar tool confirmada '{}': {}", toolName, e.getMessage(), e);
-                return Map.of("tipo", "error", "resposta", "Erro ao executar ação: " + e.getMessage());
+                return Map.of(TIPO, "error", RESPOSTA, "Erro ao executar ação: " + e.getMessage());
             }
         }
 
@@ -96,7 +146,7 @@ public class AiService {
 
     private Map<String, Object> callGrokWithMessages(WebClient webClient, List<Map<String, Object>> fullMessages) {
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", "grok-3");
+        requestBody.put("model", "grok-4-fast-non-reasoning");
         requestBody.put("messages", fullMessages);
         requestBody.put("tools", getToolsDefinition());
         requestBody.put("tool_choice", "auto");
@@ -133,22 +183,27 @@ public class AiService {
                 Map<String, Object> arguments = objectMapper.readValue(
                         (String) function.get("arguments"), Map.class);
 
-                log.info("[Lia] Argumentos recebidos para '{}': {}", name, arguments);
+                log.info("[Lia] Argumentos ANTES do pós-processamento para '{}': {}", name, arguments);
+
+                // ✅ Pós-processamento robusta de valor e data ANTES de validar
+                sanitizeToolArguments(name, arguments);
+
+                log.info("[Lia] Argumentos DEPOIS do pós-processamento para '{}': {}", name, arguments);
 
                 if (isWriteTool(name)) {
                     log.info("[Lia] Ação de escrita detectada. Validando dados antes do preview.");
                     
-                    if ("cadastrar_cliente".equals(name)) {
+                    if (CADASTRAR_CLIENTE.equals(name)) {
                         return Map.of(
-                                "tipo", "preview",
-                                "resumo", gerarResumoPreview(name, arguments),
+                                TIPO, PREVIEW,
+                                RESUMO, gerarResumoPreview(name, arguments),
                                 "toolName", name,
                                 "toolInput", arguments);
                     }
 
                     // Se for criação de OS, vamos TENTAR buscar o cliente real no banco AGORA
-                    if ("criar_ordem_servico".equals(name)) {
-                        String clienteNome = (String) arguments.get("cliente_nome");
+                    if (CRIAR_OS.equals(name)) {
+                        String clienteNome = (String) arguments.get(CLIENTE_NOME);
                         List<PessoaResumoDTO> todosClientes = pessoaService.listarClientesDoUsuario();
                         
                         // Busca flexível: primeiro tenta exato, depois contém
@@ -164,19 +219,19 @@ public class AiService {
                         
                         if (clienteOpt.isEmpty()) {
                             log.warn("[Lia] Cliente '{}' não encontrado even with flexible search.", clienteNome);
-                            return Map.of("tipo", "final", "resposta", 
+                            return Map.of(TIPO, FINAL, RESPOSTA, 
                                 "Não encontrei o cliente '" + clienteNome + "'. Gostaria de cadastrá-lo antes?");
                         }
                         
                         // Atualiza o nome para o nome exato do banco de dados e salva o ID para garantir
                         PessoaResumoDTO clienteReal = clienteOpt.get();
-                        arguments.put("cliente_real_nome", clienteReal.nome());
-                        arguments.put("pessoa_id_validado", clienteReal.id());
+                        arguments.put(CLIENTE_REAL_NOME, clienteReal.nome());
+                        arguments.put(PESSOA_ID_VALIDADO, clienteReal.id());
                     }
 
                     return Map.of(
-                            "tipo", "preview",
-                            "resumo", gerarResumoPreview(name, arguments),
+                            TIPO, PREVIEW,
+                            RESUMO, gerarResumoPreview(name, arguments),
                             "toolName", name,
                             "toolInput", arguments);
                 }
@@ -211,6 +266,193 @@ public class AiService {
         }
     }
 
+    // ─── Pós-processamento de argumentos (CRÍTICO) ────────────────────────────
+
+    /**
+     * Sanitiza argumentos extraídos do Grok.
+     * IMPORTANTE: Se Grok deixou valor/data na descrição, extrai e remove.
+     */
+    private void sanitizeToolArguments(String toolName, Map<String, Object> arguments) {
+        if (!CRIAR_OS.equals(toolName) && !EDITAR_OS.equals(toolName)) {
+            return;
+        }
+
+        if (EDITAR_OS.equals(toolName)) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> campos = (Map<String, Object>) arguments.get("campos");
+            if (campos != null) {
+                sanitizeDescriptionAndExtractData(campos, "descricao");
+            }
+            return;
+        }
+
+        sanitizeDescriptionAndExtractData(arguments, DESCRICAO_SERVICO);
+    }
+
+    /**
+     * Extrai valor e data de um campo de descrição.
+     * Agressivo: se encontrar padrão claro, extrai mesmo que Grok não tenha conseguido.
+     */
+    private void sanitizeDescriptionAndExtractData(Map<String, Object> map, String descricaoField) {
+        String descricao = (String) map.get(descricaoField);
+        if (descricao == null || descricao.isBlank()) {
+            return;
+        }
+
+        log.info("[Lia] Sanitizando '{}': '{}'", descricaoField, descricao);
+
+        // ✅ Extrair VALOR se não foi passado explicitamente
+        if (isEmpty(map.get(VALOR))) {
+            BigDecimal valorExtraido = extrairValor(descricao);
+            if (valorExtraido != null) {
+                String descricaoLimpa = removerValorDaDescricao(descricao);
+                map.put(VALOR, valorExtraido);
+                map.put(descricaoField, descricaoLimpa);
+                log.info("[Lia] VALOR extraído: {} | Descrição: '{}'", valorExtraido, descricaoLimpa);
+            }
+        }
+
+        // ✅ Extrair DATA se não foi passada explicitamente
+        if (isEmpty(map.get(PRAZO_ENTREGA))) {
+            LocalDate dataExtraida = extrairData(descricao);
+            if (dataExtraida != null) {
+                String descricaoLimpa = removerDataDaDescricao(descricao);
+                map.put(PRAZO_ENTREGA, dataExtraida.toString());
+                map.put(descricaoField, descricaoLimpa);
+                log.info("[Lia] DATA extraída: {} | Descrição: '{}'", dataExtraida, descricaoLimpa);
+            }
+        }
+    }
+
+    private boolean isEmpty(Object obj) {
+        if (obj == null) return true;
+        String str = obj.toString().trim();
+        return str.isBlank() || "null".equalsIgnoreCase(str);
+    }
+
+    /**
+     * Extrai VALOR monetário quando mencionado.
+     * Procura por padrões: "valor 200", "200 reais", "R$ 150.50", "por 100", "custa 50"
+     */
+    private BigDecimal extrairValor(String texto) {
+        Pattern[] patterns = {
+            Pattern.compile("(?i)\\bvalor\\s+([\\d.,]+)"),
+            Pattern.compile("(?i)\\b([\\d.,]+)\\s+reais?\\b"),
+            Pattern.compile("(?i)r\\$\\s+([\\d.,]+)"),
+            Pattern.compile("(?i)\\b(?:custa|por|cobrar)\\s+([\\d.,]+)"),
+        };
+
+        for (Pattern pattern : patterns) {
+            Matcher matcher = pattern.matcher(texto);
+            if (matcher.find()) {
+                String valor = matcher.group(1);
+                valor = valor.replace(",", ".");
+                try {
+                    return new BigDecimal(valor);
+                } catch (NumberFormatException e) {
+                    log.warn("[Lia] Falha ao converter valor '{}'", valor);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extrai data em diversos formatos.
+     * Suporta: "15/03", "15-03", "15/03/2026", "15 de março", "próxima segunda", "amanhã", etc.
+     */
+    private LocalDate extrairData(String texto) {
+        LocalDate hoje = LocalDate.now();
+
+        // Padrão 1: DD/MM/YYYY ou DD/MM ou DD-MM-YYYY ou DD-MM (com ano opcional)
+        Pattern dataPadrao = Pattern.compile("(\\d{1,2})[/-](\\d{1,2})(?:[/-](\\d{4}))?");
+        Matcher matcher = dataPadrao.matcher(texto);
+        if (matcher.find()) {
+            try {
+                int dia = Integer.parseInt(matcher.group(1));
+                int mes = Integer.parseInt(matcher.group(2));
+                int ano = hoje.getYear();
+                
+                // Se ano foi fornecido (grupo 3), usa ele
+                if (matcher.group(3) != null) {
+                    ano = Integer.parseInt(matcher.group(3));
+                } else {
+                    // Se a data já passou este ano, assume próximo ano
+                    LocalDate dataTemp = LocalDate.of(ano, mes, dia);
+                    if (dataTemp.isBefore(hoje)) {
+                        ano = ano + 1;
+                    }
+                }
+                
+                LocalDate data = LocalDate.of(ano, mes, dia);
+                return data;
+            } catch (Exception e) {
+                log.warn("[Lia] Erro ao parsear data DD/MM/YYYY: {}", e.getMessage());
+            }
+        }
+
+        // Padrão 2: "amanhã"
+        if (texto.toLowerCase().contains("amanhã")) {
+            return hoje.plusDays(1);
+        }
+
+        // Padrão 3: "próxima segunda/terça/..." ou "segunda-feira", "terça-feira", etc.
+        String textoLower = texto.toLowerCase();
+        String[] diasSemana = { "domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado", "sabado" };
+        int[] diasAdicionar = { 0, 1, 2, 3, 4, 5, 6, 6 };
+
+        for (int i = 0; i < diasSemana.length; i++) {
+            if (textoLower.contains(diasSemana[i])) {
+                // Se tem "próxima", força a semana que vem
+                int diasAdd = diasAdicionar[i];
+                if (textoLower.contains("próxima")) {
+                    diasAdd += 7;
+                }
+
+                LocalDate data = hoje.plusDays(diasAdd);
+                // Ajusta para o próximo dia da semana se necessário
+                while (data.getDayOfWeek().getValue() % 7 != i) {
+                    data = data.plusDays(1);
+                }
+                return data;
+            }
+        }
+
+        // Padrão 4: "em X dias"
+        Pattern diasPattern = Pattern.compile("em\\s+(\\d+)\\s+dias");
+        Matcher diasMatcher = diasPattern.matcher(texto);
+        if (diasMatcher.find()) {
+            int dias = Integer.parseInt(diasMatcher.group(1));
+            return hoje.plusDays(dias);
+        }
+
+        return null;
+    }
+
+    /**
+     * Remove VALOR mencionado da descrição.
+     */
+    private String removerValorDaDescricao(String descricao) {
+        String resultado = descricao;
+        resultado = resultado.replaceAll("(?i)\\bvalor\\s+[\\d.,]+\\b", "");
+        resultado = resultado.replaceAll("(?i)\\b[\\d.,]+\\s+reais?\\b", "");
+        resultado = resultado.replaceAll("(?i)r\\$\\s+[\\d.,]+", "");
+        resultado = resultado.replaceAll("(?i)\\b(?:custa|por|cobrar)\\s+[\\d.,]+\\b", "");
+        return resultado.replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Remove DATA mencionada da descrição.
+     */
+    private String removerDataDaDescricao(String descricao) {
+        String resultado = descricao;
+        resultado = resultado.replaceAll("\\b\\d{1,2}[/-]\\d{1,2}(?:[/-]\\d{4})?\\b", "");
+        resultado = resultado.replaceAll("(?i)\\bamanhã\\b", "");
+        resultado = resultado.replaceAll("(?i)\\bem\\s+\\d+\\s+dias\\b", "");
+        resultado = resultado.replaceAll("(?i)(?:próxima\\s+)?(?:segunda|terça|quarta|quinta|sexta|sábado|sabado|domingo)(?:-feira)?", "");
+        return resultado.replaceAll("\\s+", " ").trim();
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private WebClient buildWebClient() {
@@ -222,7 +464,7 @@ public class AiService {
     }
 
     private boolean isWriteTool(String name) {
-        return "criar_ordem_servico".equals(name) || "editar_ordem_servico".equals(name) || "cadastrar_cliente".equals(name);
+        return CRIAR_OS.equals(name) || EDITAR_OS.equals(name) || CADASTRAR_CLIENTE.equals(name);
     }
 
     private Object executeTool(String name, Map<String, Object> input) {
@@ -238,14 +480,14 @@ public class AiService {
                         .toList();
             }
             case "buscar_ordens_servico" -> {
-                String clienteNome = (String) input.get("cliente_nome");
+                String clienteFiltro = (String) input.get(CLIENTE_NOME);
                 String status = (String) input.get("status");
                 int limite = Integer.parseInt(input.getOrDefault("limite", 10).toString());
-                log.info("[Lia] Buscando ordens. Filtro cliente: '{}', status: '{}', limite: {}", clienteNome, status, limite);
+                log.info("[Lia] Buscando ordens. Filtro cliente: '{}', status: '{}', limite: {}", clienteFiltro, status, limite);
                 List<ServicoResponseDTO> servicos = servicoService.listarServicosEmAberto();
-                if (clienteNome != null) {
+                if (clienteFiltro != null) {
                     servicos = servicos.stream()
-                            .filter(s -> s.pessoaNome().toLowerCase().contains(clienteNome.toLowerCase()))
+                            .filter(s -> s.pessoaNome().toLowerCase().contains(clienteFiltro.toLowerCase()))
                             .toList();
                 }
                 if (status != null) {
@@ -275,37 +517,37 @@ public class AiService {
     }
 
     private String criarOrdemServico(Map<String, Object> input) {
-        String clienteNome = (String) input.getOrDefault("cliente_real_nome", input.get("cliente_nome"));
-        Long pessoaId = input.containsKey("pessoa_id_validado") 
-                ? Long.valueOf(input.get("pessoa_id_validado").toString()) 
+        String cliente = (String) input.getOrDefault(CLIENTE_REAL_NOME, input.get(CLIENTE_NOME));
+        Long pessoaId = input.containsKey(PESSOA_ID_VALIDADO) 
+                ? Long.valueOf(input.get(PESSOA_ID_VALIDADO).toString()) 
                 : null;
 
-        log.info("[Lia] Criando OS para cliente: '{}' (id: {})", clienteNome, pessoaId);
+        log.info("[Lia] Criando OS para cliente: '{}' (id: {})", cliente, pessoaId);
 
         if (pessoaId == null) {
-            final String nomeBusca = clienteNome;
-            PessoaResumoDTO cliente = pessoaService.listarClientesDoUsuario().stream()
+            final String nomeBusca = cliente;
+            PessoaResumoDTO p = pessoaService.listarClientesDoUsuario().stream()
                     .filter(c -> c.nome().equalsIgnoreCase(nomeBusca) || c.nome().toLowerCase().contains(nomeBusca.toLowerCase()))
                     .findFirst()
                     .orElseThrow(() -> new BusinessException("Cliente não encontrado: " + nomeBusca));
-            pessoaId = cliente.id();
-            clienteNome = cliente.nome();
+            pessoaId = p.id();
+            cliente = p.nome();
         }
 
         ServicoRequestDTO request = new ServicoRequestDTO(
                 pessoaId,
-                (String) input.get("descricao_servico"),
-                parseDateSafely(input.get("prazo_entrega")),
-                input.get("valor") != null ? new BigDecimal(input.get("valor").toString()) : null,
-                input.get("urgente") != null ? (Boolean) input.get("urgente") : false);
+                (String) input.get(DESCRICAO_SERVICO),
+                parseDateSafely(input.get(PRAZO_ENTREGA)),
+                input.get(VALOR) != null ? new BigDecimal(input.get(VALOR).toString()) : null,
+                input.get(URGENTE) != null ? (Boolean) input.get(URGENTE) : false);
 
         servicoService.criarServico(request);
-        log.info("[Lia] OS criada com sucesso para '{}'.", clienteNome);
-        return "Ordem de serviço criada com sucesso para " + clienteNome + ".";
+        log.info("[Lia] OS criada com sucesso para '{}'.", cliente);
+        return "Ordem de serviço criada com sucesso para " + cliente + ".";
     }
 
     private String editarOrdemServico(Map<String, Object> input) {
-        Long id = Long.valueOf(input.get("os_id").toString());
+        Long id = Long.valueOf(input.get(OS_ID).toString());
         log.info("[Lia] Editando OS id: {}", id);
 
         @SuppressWarnings("unchecked")
@@ -316,13 +558,13 @@ public class AiService {
         ServicoRequestDTO request = new ServicoRequestDTO(
                 atual.pessoaId(),
                 campos.getOrDefault("descricao", atual.descricao()).toString(),
-                campos.get("prazo_entrega") != null
-                        ? parseDateSafely(campos.get("prazo_entrega"))
+                campos.get(PRAZO_ENTREGA) != null
+                        ? parseDateSafely(campos.get(PRAZO_ENTREGA))
                         : atual.dataEntregaPrevista(),
-                campos.get("valor") != null
-                        ? new BigDecimal(campos.get("valor").toString())
+                campos.get(VALOR) != null
+                        ? new BigDecimal(campos.get(VALOR).toString())
                         : atual.valor(),
-                campos.get("urgente") != null ? (Boolean) campos.get("urgente") : atual.urgente());
+                campos.get(URGENTE) != null ? (Boolean) campos.get(URGENTE) : atual.urgente());
 
         if (campos.containsKey("statusServico")) {
             log.info("[Lia] Atualizando status da OS {} para '{}'.", id, campos.get("statusServico"));
@@ -345,15 +587,25 @@ public class AiService {
         if ("criar_ordem_servico".equals(name)) {
             String descricao = (String) input.get("descricao_servico");
             String cliente = (String) input.getOrDefault("cliente_real_nome", input.get("cliente_nome"));
-            String valorStr = "";
             
-            if (input.get("valor") != null) {
-                BigDecimal valor = new BigDecimal(input.get("valor").toString());
-                valorStr = String.format(", no valor de R$ %.2f", valor);
+            StringBuilder resumo = new StringBuilder();
+            resumo.append(String.format("Vou criar um serviço de '%s' para %s", descricao, cliente));
+            
+            if (input.get("valor") != null && !input.get("valor").toString().isBlank()) {
+                try {
+                    BigDecimal valor = new BigDecimal(input.get("valor").toString());
+                    resumo.append(String.format(", no valor de R$ %.2f", valor));
+                } catch (Exception e) {}
             }
             
-            return String.format("Vou criar um serviço de '%s' para %s%s. Confirma?", 
-                                 descricao, cliente, valorStr);
+            LocalDate data = parseDateSafely(input.get("prazo_entrega"));
+            if (data != null) {
+                resumo.append(String.format(" para o dia %02d/%02d/%d", 
+                    data.getDayOfMonth(), data.getMonthValue(), data.getYear()));
+            }
+            
+            resumo.append(". Confirma?");
+            return resumo.toString();
         } else if ("editar_ordem_servico".equals(name)) {
             return String.format("Vou atualizar os dados do serviço #%s conforme solicitado. Confirma?", 
                                  input.get("os_id"));
@@ -361,7 +613,7 @@ public class AiService {
             String nome = (String) input.get("nome");
             String tel = (String) input.get("telefone");
             return String.format("Vou cadastrar o cliente '%s' com o telefone %s. Confirma?", 
-                                 nome, tel != null ? tel : "(não informado)");
+                                 nome, tel != null && !tel.isBlank() ? tel : "(não informado)");
         }
         return "Deseja realizar essa ação?";
     }
@@ -377,50 +629,53 @@ public class AiService {
 
     private List<Map<String, Object>> getToolsDefinition() {
         return List.of(
-                Map.of("type", "function", "function", Map.of(
+                Map.of("type", FUNCTION, FUNCTION, Map.of(
                         "name", "buscar_clientes",
-                        "description", "Busca clientes pelo nome.",
+                        "description", "Busca clientes pelo nome no sistema.",
                         "parameters", Map.of(
                                 "type", "object",
                                 "properties", Map.of(
                                         "nome", Map.of("type", "string", "description", "Nome para busca"),
                                         "limite", Map.of("type", "integer", "description", "Máximo de resultados"))))),
-                Map.of("type", "function", "function", Map.of(
+                Map.of("type", FUNCTION, FUNCTION, Map.of(
                         "name", "buscar_ordens_servico",
                         "description", "Busca ordens de serviço por cliente ou status.",
                         "parameters", Map.of(
                                 "type", "object",
                                 "properties", Map.of(
-                                        "cliente_nome", Map.of("type", "string", "description", "Filtro por cliente"),
+                                        CLIENTE_NOME, Map.of("type", "string", "description", "Filtro por nome do cliente"),
                                         "status", Map.of("type", "string", "description", "Filtro por status: PENDENTE, EM_ANDAMENTO, FINALIZADO, URGENTE"),
                                         "limite", Map.of("type", "integer", "description", "Máximo de resultados"))))),
-                Map.of("type", "function", "function", Map.of(
+                Map.of("type", FUNCTION, FUNCTION, Map.of(
                         "name", "criar_ordem_servico",
-                        "description", "Cria uma nova ordem de serviço.",
+                        "description", "Cria uma nova ordem de serviço. SEMPRE separe valor e data da descrição.",
                         "parameters", Map.of(
                                 "type", "object",
-                                "required", List.of("cliente_nome", "descricao_servico"),
+                                "required", List.of(CLIENTE_NOME, DESCRICAO_SERVICO),
                                 "properties", Map.of(
-                                        "cliente_nome", Map.of("type", "string"),
-                                        "descricao_servico", Map.of("type", "string"),
-                                        "prazo_entrega", Map.of("type", "string", "description", "Formato YYYY-MM-DD"),
-                                        "valor", Map.of("type", "number"),
-                                        "urgente", Map.of("type", "boolean"))))),
-                Map.of("type", "function", "function", Map.of(
+                                        CLIENTE_NOME, Map.of("type", "string", "description", "Nome do cliente"),
+                                        DESCRICAO_SERVICO, Map.of("type", "string", "description", "Apenas o texto da tarefa. NÃO inclua o valor aqui."),
+                                        PRAZO_ENTREGA, Map.of("type", "string", "description", "Formato YYYY-MM-DD"),
+                                        VALOR, Map.of("type", "number", "description", "Valor numérico do serviço em reais. Ex: 200.00"),
+                                        URGENTE, Map.of("type", "boolean", "description", "Se é um pedido urgente"))))),
+                Map.of("type", FUNCTION, FUNCTION, Map.of(
                         "name", "editar_ordem_servico",
                         "description", "Edita uma ordem de serviço existente.",
                         "parameters", Map.of(
                                 "type", "object",
-                                "required", List.of("os_id", "campos"),
+                                "required", List.of(OS_ID, "campos"),
                                 "properties", Map.of(
-                                        "os_id", Map.of("type", "integer"),
+                                        OS_ID, Map.of("type", "integer", "description", "ID da ordem de serviço"),
                                         "campos", Map.of(
                                                 "type", "object",
                                                 "properties", Map.of(
-                                                        "valor", Map.of("type", "number"),
-                                                        "urgente", Map.of("type", "boolean"))))))),
-                Map.of("type", "function", "function", Map.of(
-                        "name", "cadastrar_cliente",
+                                                        "descricao", Map.of("type", "string"),
+                                                        "statusServico", Map.of("type", "string"),
+                                                        PRAZO_ENTREGA, Map.of("type", "string"),
+                                                        VALOR, Map.of("type", "number", "description", "Novo valor numérico"),
+                                                        URGENTE, Map.of("type", "boolean"))))))),
+                Map.of("type", FUNCTION, FUNCTION, Map.of(
+                        "name", CADASTRAR_CLIENTE,
                         "description", "Cadastra um novo cliente no sistema.",
                         "parameters", Map.of(
                                 "type", "object",
