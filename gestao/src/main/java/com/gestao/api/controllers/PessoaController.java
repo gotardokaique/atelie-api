@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.services.PessoaService;
@@ -39,6 +40,11 @@ public class PessoaController {
     @GetMapping("/{id}")
     public ResponseEntity<PessoaDTO> buscarPessoaPorId(@PathVariable Long id) {
         return ResponseEntity.ok(pessoaService.buscarPessoaPorId(id));
+    }
+
+    @GetMapping("/{id}/detalhes")
+    public ResponseEntity<ClienteDetalhesDTO> buscarDetalhesCliente(@PathVariable Long id) {
+        return ResponseEntity.ok(pessoaService.buscarDetalhesCliente(id));
     }
 
     @PutMapping("/{id}")

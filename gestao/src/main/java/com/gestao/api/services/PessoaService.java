@@ -1,6 +1,8 @@
 package com.gestao.api.services;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -10,16 +12,20 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.gestao.api.context.UserContext;
+import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
+import com.gestao.api.controllers.DTOs.ServicoHistoricoDTO;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.db.DAOController;
+import com.gestao.api.db.QueryBuilder;
 import com.gestao.api.entities.Pessoa;
+import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
+import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.NotFoundException;
 import com.gestao.api.services.exceptions.ResourceNotFoundException;
-import com.gestao.api.db.QueryBuilder;
 
 @Service
 public class PessoaService {
@@ -157,6 +163,61 @@ public class PessoaService {
     public void deletarPessoa(Long id) {
         Pessoa pessoaExistente = buscarPessoaById(id);
         daoController.delete(pessoaExistente);
+    }
+
+    // ===================== DETALHES DO CLIENTE =====================
+
+    @Transactional(readOnly = true)
+    public ClienteDetalhesDTO buscarDetalhesCliente(Long id) {
+        Pessoa pessoa = buscarPessoaById(id);
+
+        List<Servico> servicos;
+        try {
+            servicos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where("pessoa.id", Condicao.EQUAL, id)
+                    .orderBy("dataCadastro", false)
+                    .list();
+        } catch (Exception e) {
+            servicos = List.of();
+        }
+
+        int total = servicos.size();
+
+        BigDecimal totalGasto = servicos.stream()
+                .map(Servico::getValor)
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long pendentes = servicos.stream()
+                .filter(s -> s.getStatusServico() != StatusServico.FINALIZADO)
+                .count();
+
+        long concluidos = servicos.stream()
+                .filter(s -> s.getStatusServico() == StatusServico.FINALIZADO)
+                .count();
+
+        LocalDate ultimoAtendimento = servicos.stream()
+                .map(Servico::getDataFinalizacao)
+                .filter(d -> d != null)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+
+        List<ServicoHistoricoDTO> historico = ServicoHistoricoDTO.refactor(servicos);
+
+        return ClienteDetalhesDTO.refactor(
+                pessoa,
+                total,
+                totalGasto,
+                (int) pendentes,
+                (int) concluidos,
+                ultimoAtendimento,
+                historico
+        );
     }
 
     // ===================== HELPERS PRIVADOS =====================
