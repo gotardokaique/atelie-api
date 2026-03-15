@@ -150,6 +150,7 @@ public class ServicoService {
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .orderBy("statusPagamento", false)
                 .orderBy("dataCadastro", false)
                 .limit(100)
                 .list();
