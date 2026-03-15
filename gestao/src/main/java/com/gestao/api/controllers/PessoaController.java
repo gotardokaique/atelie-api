@@ -22,7 +22,7 @@ public class PessoaController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> criarPessoa(@RequestBody PessoaDTO pessoaDTO) {
+    public ResponseEntity<Void> criarPessoa(@RequestBody PessoaDTO pessoaDTO) throws Exception {
         pessoaService.criarPessoa(pessoaDTO);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }

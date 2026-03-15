@@ -508,7 +508,7 @@ public class AiService {
         return CRIAR_OS.equals(name) || EDITAR_OS.equals(name) || CADASTRAR_CLIENTE.equals(name);
     }
 
-    private Object executeTool(String name, Map<String, Object> input) {
+    private Object executeTool(String name, Map<String, Object> input) throws Exception {
         log.info("[Lia] Executando tool local: '{}'", name);
         return switch (name) {
             case "buscar_clientes" -> {
@@ -546,7 +546,7 @@ public class AiService {
         };
     }
 
-    private String cadastrarCliente(Map<String, Object> input) {
+    private String cadastrarCliente(Map<String, Object> input) throws Exception {
         String nome = (String) input.get("nome");
         String telefone = (String) input.get("telefone");
         String medidas = (String) input.get("medidas");

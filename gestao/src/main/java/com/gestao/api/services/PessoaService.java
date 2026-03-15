@@ -18,7 +18,6 @@ import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.controllers.DTOs.ServicoHistoricoDTO;
 import com.gestao.api.db.Condicao;
 import com.gestao.api.db.DAOController;
-import com.gestao.api.db.QueryBuilder;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
@@ -39,11 +38,8 @@ public class PessoaService {
     // ===================== CRIAR =====================
 
     @Transactional
-    @CacheEvict(
-            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
-            allEntries = true
-    )
-    public void criarPessoa(PessoaDTO dto) {
+    @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
+    public void criarPessoa(PessoaDTO dto) throws Exception {
 
         String nomeLimpo = limparNome(dto.nome());
         String telefoneLimpo = limparTelefone(dto.telefone());
@@ -56,7 +52,7 @@ public class PessoaService {
         pessoa.setNome(nomeLimpo);
         pessoa.setTelefone(telefoneLimpo);
         pessoa.setMedidas(medidasLimpas);
-//        pessoa.setDataCadastro(new LocalDate().now()));
+        // pessoa.setDataCadastro(new LocalDate().now()));
 
         Usuario usuarioRef = new Usuario();
         usuarioRef.setId(UserContext.getIdUsuario());
@@ -68,10 +64,7 @@ public class PessoaService {
     // ===================== LISTAR =====================
 
     @Transactional(readOnly = true)
-    @Cacheable(
-            value = "PESSOAS_TODAS",
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @Cacheable(value = "PESSOAS_TODAS", key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public List<PessoaDTO> listarTodasPessoas() {
         List<Pessoa> pessoas = daoController
                 .select()
@@ -85,10 +78,7 @@ public class PessoaService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(
-            value = "PESSOAS_CLIENTES",
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @Cacheable(value = "PESSOAS_CLIENTES", key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public List<PessoaResumoDTO> listarClientesDoUsuario() {
         List<Pessoa> pessoas = daoController
                 .select("id", "nome")
@@ -104,10 +94,7 @@ public class PessoaService {
     // ===================== BUSCAR POR ID =====================
 
     @Transactional(readOnly = true)
-    @Cacheable(
-            value = "PESSOA_BY_ID",
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario() + ':' + #id"
-    )
+    @Cacheable(value = "PESSOA_BY_ID", key = "T(com.gestao.api.context.UserContext).getIdUsuario() + ':' + #id")
     public PessoaDTO buscarPessoaPorId(Long id) {
         Pessoa pessoa;
         try {
@@ -128,10 +115,7 @@ public class PessoaService {
     // ===================== ATUALIZAR =====================
 
     @Transactional
-    @CacheEvict(
-            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
-            allEntries = true
-    )
+    @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
     public void atualizarPessoa(Long id, PessoaDTO dto) {
 
         Pessoa pessoaExistente = buscarPessoaById(id);
@@ -141,7 +125,6 @@ public class PessoaService {
         String medidasLimpas = limparMedidas(dto.medidas());
 
         validarDadosPessoa(nomeLimpo, telefoneLimpo);
-        verificarTelefoneExistente(telefoneLimpo, id);
 
         if (nomeLimpo != null) {
             pessoaExistente.setNome(nomeLimpo);
@@ -156,13 +139,14 @@ public class PessoaService {
     // ===================== DELETAR =====================
 
     @Transactional
-    @CacheEvict(
-            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
-            allEntries = true
-    )
+    @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
     public void deletarPessoa(Long id) {
         Pessoa pessoaExistente = buscarPessoaById(id);
-        daoController.delete(pessoaExistente);
+        try {
+            daoController.delete(pessoaExistente);
+        } catch (Exception e) {
+            throw new BusinessException("Não é possível deletar um cliente que possui serviços cadastrados.");
+        }
     }
 
     // ===================== DETALHES DO CLIENTE =====================
@@ -216,8 +200,7 @@ public class PessoaService {
                 (int) pendentes,
                 (int) concluidos,
                 ultimoAtendimento,
-                historico
-        );
+                historico);
     }
 
     // ===================== HELPERS PRIVADOS =====================
@@ -236,17 +219,20 @@ public class PessoaService {
     }
 
     private String limparNome(String nome) {
-        if (nome == null) return null;
+        if (nome == null)
+            return null;
         return nome.trim();
     }
 
     private String limparTelefone(String telefone) {
-        if (telefone == null) return null;
+        if (telefone == null)
+            return null;
         return telefone.replaceAll("[^0-9]", "");
     }
 
     private String limparMedidas(String medidas) {
-        if (medidas == null) return null;
+        if (medidas == null)
+            return null;
         return medidas.trim();
     }
 
@@ -269,17 +255,16 @@ public class PessoaService {
         }
     }
 
-    private void verificarTelefoneExistente(String telefone, Long id) {
-        QueryBuilder query = daoController
+    private void verificarTelefoneExistente(String telefone, Long id) throws Exception {
+        List<Pessoa> existing = daoController
                 .select()
                 .from(Pessoa.class)
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-                .where("telefone", Condicao.EQUAL, telefone);
+                .where("telefone", Condicao.EQUAL, telefone)
+                .list();
 
-        List<Pessoa> existing = query.list();
-
-        if (!existing.isEmpty()) {
+        if (existing.isEmpty() == false) {
             throw new BusinessException("Já existe um cliente cadastrado com este número de telefone.");
         }
     }
@@ -287,10 +272,7 @@ public class PessoaService {
     // ===================== SALVAR (INSERT / UPDATE) =====================
 
     @Transactional
-    @CacheEvict(
-            value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" },
-            allEntries = true
-    )
+    @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
     public Pessoa salvar(Pessoa pessoa) {
         if (pessoa.getId() != null) {
             return daoController.update(pessoa);
@@ -298,7 +280,7 @@ public class PessoaService {
             return daoController.insert(pessoa);
         }
     }
-    
+
     @Transactional(readOnly = true)
     public int getQtdClientesCadastradosMesAtual() {
 
