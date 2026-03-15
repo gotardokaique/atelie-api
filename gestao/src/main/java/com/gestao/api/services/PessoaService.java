@@ -81,7 +81,7 @@ public class PessoaService {
     @Cacheable(value = "PESSOAS_CLIENTES", key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public List<PessoaResumoDTO> listarClientesDoUsuario() {
         List<Pessoa> pessoas = daoController
-                .select("id", "nome")
+                .select("id", "nome", "telefone")
                 .from(Pessoa.class)
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
