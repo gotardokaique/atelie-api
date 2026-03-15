@@ -9,13 +9,15 @@ import com.gestao.api.entities.Pessoa;
 
 public record PessoaResumoDTO(
         Long id,
-        String nome
+        String nome,
+        String telefone
 ) implements Serializable{
 
     public static PessoaResumoDTO refactor(Pessoa pessoa) {
         return new PessoaResumoDTO(
                 pessoa.getId(),
-                pessoa.getNome()
+                pessoa.getNome(),
+                pessoa.getTelefone()
         );
     }
 
