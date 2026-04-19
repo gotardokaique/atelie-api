@@ -6,16 +6,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
+import com.gen.core.security.TokenService;
+import com.gen.core.security.SessionService;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.security.controller.SessionService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,14 +30,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final int MAX_TOKEN_LENGTH = 2048;
 
-    private final JwtTokenProvider tokenProvider;
+    private final TokenService tokenService;
     private final DAOController daoController;
     private final SessionService sessionService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
+    public JwtAuthenticationFilter(TokenService tokenService,
                                    DAOController daoController,
                                    SessionService sessionService) {
-        this.tokenProvider = tokenProvider;
+        this.tokenService = tokenService;
         this.daoController = daoController;
         this.sessionService = sessionService;
     }
@@ -63,29 +63,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 3) Extrai token do header Authorization
-            String jwt = getJwtFromRequest(request);
+            // 3) Extrai token do cookie Auth_Token
+            String jwt = tokenService.getTokenFromRequest(request);
             if (!StringUtils.hasText(jwt)) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            if (jwt.length() > MAX_TOKEN_LENGTH) {
-                logger.warn("JWT com tamanho inválido ({} chars)", jwt.length());
-                filterChain.doFilter(request, response);
-                return;
-            }
-
-            // 4) Valida assinatura / expiração
-            if (!tokenProvider.validateToken(jwt)) {
-                logger.debug("JWT inválido ou expirado");
-                filterChain.doFilter(request, response);
-                return;
-            }
-
-            String username = tokenProvider.getUsernameFromJWT(jwt);
+            // 4) Valida assinatura / expiração e obtém username
+            String username = tokenService.validateToken(jwt);
             if (!StringUtils.hasText(username)) {
-                logger.debug("JWT sem subject válido");
+                logger.debug("JWT inválido, expirado ou sem subject");
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -137,25 +125,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private String getJwtFromRequest(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
 
-        if (!StringUtils.hasText(authHeader)) {
-            return null;
-        }
-
-        authHeader = authHeader.trim();
-        if (authHeader.length() < BEARER_PREFIX.length()) {
-            return null;
-        }
-
-        if (!authHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
-            return null;
-        }
-
-        String token = authHeader.substring(BEARER_PREFIX.length()).trim();
-        return StringUtils.hasText(token) ? token : null;
-    }
 
     private Usuario carregarUsuario(String username) {
         try {

@@ -7,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gestao.api.controllers.DTOs.TipoServicoDTO;
 import com.gestao.api.context.UserContext;
-import com.gestao.api.db.DAOController;
-import com.gestao.api.db.Condicao;
+import com.gen.core.db.DAOController;
+import com.gen.core.db.Condicao;
 import com.gestao.api.entities.TipoServico;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.services.exceptions.NotFoundException;

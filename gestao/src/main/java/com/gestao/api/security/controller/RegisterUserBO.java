@@ -16,8 +16,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
+import com.gen.core.db.TransactionDB;
+import com.gen.core.security.SessionService;
+import com.gen.core.security.TokenService;
 import com.gestao.api.controllers.DTOs.LoginResponseDTO;
-import com.gestao.api.db.TransactionDB;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.RoleEnum;
 
@@ -196,7 +198,13 @@ public class RegisterUserBO {
     }
 
     public Boolean isEmailJaRegistrado(String email) {
-        return usuarioServiceValidacao.validarEmailJaCadastrado(email);
+        try {
+			return usuarioServiceValidacao.validarEmailJaCadastrado(email);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return true;
     }
 
     public Boolean cadastrarUsuario(String nome, String email, String hashed, RoleEnum role) {
@@ -215,7 +223,7 @@ public class RegisterUserBO {
 
     // ===================== LOGIN (AGORA COM EMAIL + IP+EMAIL EM REDIS) =====================
 
-    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request) {
+    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
         String email = emailRaw.trim().toLowerCase();
 
         if (!REGEX_EMAIL.matcher(email).matches()) {
@@ -264,6 +272,8 @@ public class RegisterUserBO {
 
             var jwt = tokenService.generateToken(user);
             sessionService.storeToken(user.getId(), jwt);
+            
+            com.gen.core.utils.HttpUtils.addSecureCookie(response, "auth_token", jwt, 3600 * 24);
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
             return ResponseEntity.ok(new LoginResponseDTO(jwt));

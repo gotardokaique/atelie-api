@@ -24,6 +24,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
@@ -34,8 +36,6 @@ import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;

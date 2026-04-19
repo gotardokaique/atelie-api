@@ -2,9 +2,9 @@ package com.gestao.api.security.controller;
 
 import org.springframework.stereotype.Service;
 
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.QueryBuilder;
-import com.gestao.api.db.TransactionDB;
+import com.gen.core.db.Condicao;
+import com.gen.core.db.QueryBuilder;
+import com.gen.core.db.TransactionDB;
 import com.gestao.api.entities.Usuario;
 
 import jakarta.persistence.NoResultException;
@@ -18,7 +18,7 @@ public class UsuarioServiceValidacao {
         this.trans = trans;
     }
 
-    public Boolean validarEmailJaCadastrado(String email) {
+    public Boolean validarEmailJaCadastrado(String email) throws Exception {
         try {
             new QueryBuilder(trans)
                     .select()

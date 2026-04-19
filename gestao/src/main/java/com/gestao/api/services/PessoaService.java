@@ -11,13 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.controllers.DTOs.ServicoHistoricoDTO;
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;

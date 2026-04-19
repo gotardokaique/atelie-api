@@ -1,7 +1,7 @@
 package com.gestao.api.select;
 
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
 
 public class Select {

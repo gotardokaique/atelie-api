@@ -26,8 +26,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.JwtAuthenticationFilter;
 

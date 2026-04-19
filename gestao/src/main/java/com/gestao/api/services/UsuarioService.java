@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
-import com.gestao.api.db.DAOController;
+import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.RoleEnum;
 import com.gestao.api.select.Select;

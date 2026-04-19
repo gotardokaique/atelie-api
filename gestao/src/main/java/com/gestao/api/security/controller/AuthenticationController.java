@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.security.SessionService;
+import com.gen.core.security.TokenService;
 import com.gestao.api.controllers.DTOs.ForgotPasswordDTO;
 import com.gestao.api.controllers.DTOs.LoginRequestDTO;
 import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
@@ -66,10 +68,10 @@ public class AuthenticationController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto, HttpServletRequest request) {
+    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto, HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
         String email = dto.email();
         String senha = dto.senha();
-        return registerBO.processarLogin(email, senha, request);
+        return registerBO.processarLogin(email, senha, request, response);
     }
     
     @PostMapping("/register")
@@ -163,10 +165,11 @@ public class AuthenticationController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    public ResponseEntity<?> logout(jakarta.servlet.http.HttpServletResponse response) {
         var principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (principal instanceof Usuario user) {
             sessionService.removeToken(user.getId());
+            com.gen.core.utils.HttpUtils.removeCookie(response, "auth_token");
             return ResponseEntity.ok("Logout executado.");
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não autenticado.");
