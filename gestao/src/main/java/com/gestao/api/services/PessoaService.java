@@ -72,6 +72,8 @@ public class PessoaService {
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .orderBy("nome", true)
+                .orderBy("telefone", true)
+
                 .list();
 
         return PessoaDTO.refactor(pessoas);
