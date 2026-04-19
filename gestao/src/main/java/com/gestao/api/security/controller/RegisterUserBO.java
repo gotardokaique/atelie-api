@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import com.gen.core.db.TransactionDB;
 import com.gen.core.security.SessionService;
 import com.gen.core.security.TokenService;
+import com.gen.core.utils.HttpUtils;
 import com.gestao.api.controllers.DTOs.LoginResponseDTO;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.RoleEnum;
@@ -273,7 +274,7 @@ public class RegisterUserBO {
             var jwt = tokenService.generateToken(user);
             sessionService.storeToken(user.getId(), jwt);
             
-            com.gen.core.utils.HttpUtils.addSecureCookie(response, "auth_token", jwt, 3600 * 24);
+            HttpUtils.addSecureCookie(response, "auth_token", jwt, 3600 * 24);
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
             return ResponseEntity.ok(new LoginResponseDTO(jwt));

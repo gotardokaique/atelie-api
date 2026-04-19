@@ -27,9 +27,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
-    private static final String BEARER_PREFIX = "Bearer ";
-    private static final int MAX_TOKEN_LENGTH = 2048;
-
     private final TokenService tokenService;
     private final DAOController daoController;
     private final SessionService sessionService;

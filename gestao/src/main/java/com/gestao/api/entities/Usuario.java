@@ -15,7 +15,7 @@ import com.gestao.api.enuns.RoleEnum;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "usuario")
+@Table(name = "usuarios")
 public class Usuario implements UserDetails, Serializable, UserAccount {
 
     private static final long serialVersionUID = 1L;
