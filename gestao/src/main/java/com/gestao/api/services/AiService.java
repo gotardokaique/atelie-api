@@ -526,7 +526,7 @@ public class AiService {
                 int limite = Integer.parseInt(input.getOrDefault("limite", 10).toString());
                 log.info("[Lia] Buscando ordens. Filtro cliente: '{}', status: '{}', limite: {}", clienteFiltro, status,
                         limite);
-                List<ServicoResponseDTO> servicos = servicoService.listarServicosEmAberto();
+                List<ServicoResponseDTO> servicos = servicoService.listarServicosEmAberto(null);
                 if (clienteFiltro != null) {
                     servicos = servicos.stream()
                             .filter(s -> s.pessoaNome().toLowerCase().contains(clienteFiltro.toLowerCase()))
