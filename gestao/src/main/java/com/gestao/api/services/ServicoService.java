@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.WhereDB;
+import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
@@ -98,8 +100,18 @@ public class ServicoService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
-    public List<ServicoResponseDTO> listarServicosEmAberto() {
+    public List<ServicoResponseDTO> listarServicosEmAberto(FilterQuery filter) {
+
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+        where.add("statusServico", Condicao.IN,
+                StatusServico.PENDENTE,
+                StatusServico.EM_ANDAMENTO,
+                StatusServico.URGENTE);
+
+        if (filter != null) {
+            filter.applyTo(where);
+        }
 
         List<Servico> servicos;
         try {
@@ -108,28 +120,14 @@ public class ServicoService {
                     .from(Servico.class)
                     .leftJoin("pessoa")
                     .join("usuario")
-                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-                    .where("statusServico", Condicao.IN,
-                            StatusServico.PENDENTE,
-                            StatusServico.EM_ANDAMENTO,
-                            StatusServico.URGENTE)
-
-                    // 1) urgentes primeiro (flag urgente OU status URGENTE)
+                    .where(where)
                     .orderByRaw(
                             "CASE WHEN (c.urgente = true OR c.statusServico = ?) THEN 0 ELSE 1 END ASC",
                             StatusServico.URGENTE)
-
-                    // 2) com previsão antes de sem previsão
                     .orderByRaw("CASE WHEN c.dataEntregaPrevista IS NULL THEN 1 ELSE 0 END ASC")
-
-                    // 3) vencidos/hoje primeiro
                     .orderByRaw(
                             "CASE WHEN c.dataEntregaPrevista IS NOT NULL AND c.dataEntregaPrevista <= CURRENT_DATE THEN 0 ELSE 1 END ASC")
-
-                    // 4) mais próximo primeiro
                     .orderBy("dataEntregaPrevista", true)
-
-                    // 5) mais velho primeiro
                     .orderBy("dataCadastro", true)
                     .limit(200)
                     .list();
@@ -142,14 +140,21 @@ public class ServicoService {
     }
 
     @Transactional(readOnly = true)
-    public List<ServicoResponseDTO> listarServicosFinalizados() {
+    public List<ServicoResponseDTO> listarServicosFinalizados(FilterQuery filter) {
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+        where.add("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO);
+
+        if (filter != null) {
+            filter.applyTo(where);
+        }
+
         List<Servico> servicos = daoController
                 .select()
                 .from(Servico.class)
-                .join("pessoa")
+                .leftJoin("pessoa")
                 .join("usuario")
-                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where(where)
                 .orderBy("statusPagamento", false)
                 .orderBy("dataCadastro", false)
                 .limit(100)

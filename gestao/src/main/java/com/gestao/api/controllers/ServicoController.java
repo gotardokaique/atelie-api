@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.enuns.StatusPagamento;
@@ -35,14 +36,13 @@ public class ServicoController {
     }
 
     @GetMapping("/em-aberto")
-    public ResponseEntity<List<ServicoResponseDTO>> listarServicosEmAberto()
-             {
-        return ResponseEntity.ok(servicoService.listarServicosEmAberto());
+    public ResponseEntity<List<ServicoResponseDTO>> listarServicosEmAberto(FilterQuery filter) {
+        return ResponseEntity.ok(servicoService.listarServicosEmAberto(filter));
     }
 
     @GetMapping("/finalizados")
-    public ResponseEntity<List<ServicoResponseDTO>> listarServicosFinalizados() {
-        return ResponseEntity.ok(servicoService.listarServicosFinalizados());
+    public ResponseEntity<List<ServicoResponseDTO>> listarServicosFinalizados(FilterQuery filter) {
+        return ResponseEntity.ok(servicoService.listarServicosFinalizados(filter));
     }
 
     @GetMapping("/{id}")
