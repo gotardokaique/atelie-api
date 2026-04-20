@@ -13,6 +13,8 @@ import org.springframework.util.StringUtils;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.WhereDB;
+import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
@@ -64,16 +66,21 @@ public class PessoaService {
     // ===================== LISTAR =====================
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "PESSOAS_TODAS", key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
-    public List<PessoaDTO> listarTodasPessoas() {
+    public List<PessoaDTO> listarTodasPessoas(FilterQuery filter) {
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+
+        if (filter != null) {
+            filter.applyTo(where);
+        }
+
         List<Pessoa> pessoas = daoController
                 .select()
                 .from(Pessoa.class)
                 .join("usuario")
-                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where(where)
                 .orderBy("nome", true)
                 .orderBy("telefone", true)
-
                 .list();
 
         return PessoaDTO.refactor(pessoas);
