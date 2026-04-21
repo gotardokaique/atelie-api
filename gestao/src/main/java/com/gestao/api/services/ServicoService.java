@@ -110,7 +110,7 @@ public class ServicoService {
                 StatusServico.URGENTE);
 
         if (filter != null) {
-            filter.applyTo(where);
+            filter.withEntityClass(Servico.class).applyTo(where);
         }
 
         List<Servico> servicos;
@@ -146,7 +146,7 @@ public class ServicoService {
         where.add("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO);
 
         if (filter != null) {
-            filter.applyTo(where);
+            filter.withEntityClass(Servico.class).applyTo(where);
         }
 
         List<Servico> servicos = daoController
