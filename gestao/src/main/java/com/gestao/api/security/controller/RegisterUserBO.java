@@ -53,11 +53,11 @@ public class RegisterUserBO {
     private static final long TENTATIVA_TTL_MINUTOS = 30;
 
     // Prefixos distintos para separar EMAIL e IP+EMAIL
-    private static final String LOGIN_ATTEMPT_EMAIL_PREFIX    = "login:attempt:email:";
+    private static final String LOGIN_ATTEMPT_EMAIL_PREFIX = "login:attempt:email:";
     private static final String LOGIN_ATTEMPT_IP_EMAIL_PREFIX = "login:attempt:ip_email:";
 
-    private static final java.util.regex.Pattern REGEX_EMAIL =
-            java.util.regex.Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+    private static final java.util.regex.Pattern REGEX_EMAIL = java.util.regex.Pattern
+            .compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
 
     private final UsuarioServiceValidacao usuarioServiceValidacao;
     private final TransactionDB trans;
@@ -178,13 +178,15 @@ public class RegisterUserBO {
     // ===================== REGRAS DE NEGÓCIO =====================
 
     public Boolean validarSenhaForte(String senha) {
-        if (senha == null) return false;
-        if (senha.length() < 8) return false;
+        if (senha == null)
+            return false;
+        if (senha.length() < 8)
+            return false;
 
         boolean temMaiuscula = senha.matches(".*[A-Z].*");
         boolean temMinuscula = senha.matches(".*[a-z].*");
-        boolean temNumero    = senha.matches(".*[0-9].*");
-        // boolean temEspecial  = senha.matches(".*[^a-zA-Z0-9].*");
+        boolean temNumero = senha.matches(".*[0-9].*");
+        // boolean temEspecial = senha.matches(".*[^a-zA-Z0-9].*");
 
         if (!temMaiuscula || !temMinuscula || !temNumero) {
             return false;
@@ -200,12 +202,12 @@ public class RegisterUserBO {
 
     public Boolean isEmailJaRegistrado(String email) {
         try {
-			return usuarioServiceValidacao.validarEmailJaCadastrado(email);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return true;
+            return usuarioServiceValidacao.validarEmailJaCadastrado(email);
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return true;
     }
 
     public Boolean cadastrarUsuario(String nome, String email, String hashed, RoleEnum role) {
@@ -222,9 +224,11 @@ public class RegisterUserBO {
         return isUserCadastrado;
     }
 
-    // ===================== LOGIN (AGORA COM EMAIL + IP+EMAIL EM REDIS) =====================
+    // ===================== LOGIN (AGORA COM EMAIL + IP+EMAIL EM REDIS)
+    // =====================
 
-    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
         String email = emailRaw.trim().toLowerCase();
 
         if (!REGEX_EMAIL.matcher(email).matches()) {
@@ -244,7 +248,8 @@ public class RegisterUserBO {
 
         // 2) Verifica se está bloqueado em QUALQUER dimensão
         boolean bloqueadoPorEmail = tentativaEmail.bloqueadoAte != null && tentativaEmail.bloqueadoAte.isAfter(agora);
-        boolean bloqueadoPorIpEmail = tentativaIpEmail.bloqueadoAte != null && tentativaIpEmail.bloqueadoAte.isAfter(agora);
+        boolean bloqueadoPorIpEmail = tentativaIpEmail.bloqueadoAte != null
+                && tentativaIpEmail.bloqueadoAte.isAfter(agora);
 
         if (bloqueadoPorEmail || bloqueadoPorIpEmail) {
             logger.warn("Login bloqueado para {} até Email[{}], IP+Email[{}] (IP: {})",
@@ -273,8 +278,8 @@ public class RegisterUserBO {
 
             var jwt = tokenService.generateToken(user);
             sessionService.storeToken(user.getId(), jwt);
-            
-            HttpUtils.addSecureCookie(response, "auth_token", jwt, 3600 * 24);
+
+            HttpUtils.addSecureCookie(response, "auth_token", jwt, 3600 * 24 * 3);
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
             return ResponseEntity.ok(new LoginResponseDTO(jwt));
@@ -300,7 +305,8 @@ public class RegisterUserBO {
             salvarTentativaEmail(email, tentativaEmail);
             salvarTentativaIpEmail(email, clientIp, tentativaIpEmail);
 
-            logger.warn("Credenciais inválidas para {} (IP: {}): tentativasEmail={} tentativasIpEmail={} de {}. Motivo: {}",
+            logger.warn(
+                    "Credenciais inválidas para {} (IP: {}): tentativasEmail={} tentativasIpEmail={} de {}. Motivo: {}",
                     email, clientIp,
                     tentativaEmail.tentativas, tentativaIpEmail.tentativas,
                     MAX_TENTATIVAS_LOGIN,
