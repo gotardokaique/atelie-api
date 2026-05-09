@@ -13,10 +13,13 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.gestao.api.controllers.DTOs.UserMeDTO;
 
 import com.gen.core.security.SessionService;
 import com.gen.core.security.TokenService;
@@ -162,6 +165,15 @@ public class AuthenticationController {
         sessionService.removeToken(user.getId());
 
         return ResponseEntity.ok("Senha redefinida com sucesso.");
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getMe() {
+        var principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof Usuario user) {
+            return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail()));
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não autenticado.");
     }
 
     @PostMapping("/logout")
