@@ -35,6 +35,11 @@ public class ServicoController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @GetMapping("/alertas-prazo")
+    public ResponseEntity<List<ServicoResponseDTO>> getServicosProximosPrazo() {
+        return ResponseEntity.ok(servicoService.getServicosProximosPrazo());
+    }
+
     @GetMapping("/em-aberto")
     public ResponseEntity<List<ServicoResponseDTO>> listarServicosEmAberto(FilterQuery filter) {
         return ResponseEntity.ok(servicoService.listarServicosEmAberto(filter));

@@ -720,6 +720,36 @@ public class ServicoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> getServicosProximosPrazo() {
+        LocalDate hoje = LocalDate.now(clock);
+        LocalDate limite = hoje.plusDays(2);
+
+        List<Servico> todos;
+        try {
+            todos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where("statusServico", Condicao.IN,
+                            StatusServico.PENDENTE,
+                            StatusServico.EM_ANDAMENTO,
+                            StatusServico.URGENTE)
+                    .list();
+        } catch (Exception e) {
+            return List.of();
+        }
+
+        return todos.stream()
+                .filter(s -> s.getDataEntregaPrevista() != null)
+                .filter(s -> !s.getDataEntregaPrevista().isBefore(hoje))
+                .filter(s -> !s.getDataEntregaPrevista().isAfter(limite))
+                .map(ServicoResponseDTO::refactor)
+                .collect(Collectors.toList());
+    }
+
     public List<Servico> gerarRelatorio() {
         return daoController.select()
                 .from(Servico.class)
