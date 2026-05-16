@@ -1,6 +1,5 @@
 package com.gestao.api.security.redefinir;
 
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.security.core.token.KeyBasedPersistenceTokenService;
 import org.springframework.security.core.token.SecureRandomFactoryBean;
@@ -11,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.QueryBuilder;
 import com.gen.core.db.TransactionDB;
+import com.gen.core.security.SessionService;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.redefinir.dto.PasswordTokenPublicData;
 
@@ -24,23 +24,23 @@ public class RedefinirSenhaService {
 
     private final TransactionDB trans;
     private final PasswordEncoder passwordEncoder;
+    private final SessionService sessionService;
 
-    public RedefinirSenhaService(TransactionDB trans, PasswordEncoder passwordEncoder) {
+    public RedefinirSenhaService(TransactionDB trans, PasswordEncoder passwordEncoder, SessionService sessionService) {
         this.trans = trans;
         this.passwordEncoder = passwordEncoder;
+        this.sessionService = sessionService;
     }
 
     @SneakyThrows
-    public String generateToken(Usuario user) {
+    public String generateToken(Usuario user) throws Exception {
         KeyBasedPersistenceTokenService tokenService = getInstanceFor(user);
-
         Token token = tokenService.allocateToken(user.getEmail());
-
         return token.getKey();
     }
 
     @SneakyThrows
-    public void changePassword(String newPassword, String rawToken) {
+    public void changePassword(String newPassword, String rawToken) throws Exception {
         PasswordTokenPublicData publicData = readPublicData(rawToken);
 
         if (isExpired(publicData)) {
@@ -57,8 +57,8 @@ public class RedefinirSenhaService {
         tokenService.verifyToken(rawToken);
 
         usuario.setSenha(this.passwordEncoder.encode(newPassword));
-
         trans.update(usuario);
+        sessionService.removeToken(usuario.getId());
     }
 
     private boolean isExpired(PasswordTokenPublicData publicData) {
@@ -69,7 +69,6 @@ public class RedefinirSenhaService {
 
     private KeyBasedPersistenceTokenService getInstanceFor(Usuario usuario) throws Exception {
         KeyBasedPersistenceTokenService tokenService = new KeyBasedPersistenceTokenService();
-
         tokenService.setServerSecret(usuario.getSenha());
         tokenService.setServerInteger(16);
         tokenService.setSecureRandom(new SecureRandomFactoryBean().getObject());
@@ -83,5 +82,4 @@ public class RedefinirSenhaService {
         String email = tokenParts[2];
         return new PasswordTokenPublicData(email, timestamp);
     }
-
 }
