@@ -10,6 +10,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.gen.core.contracts.UserAccount;
+import com.gestao.api.enuns.ProviderUsuario;
 import com.gestao.api.enuns.RoleEnum;
 
 import jakarta.persistence.*;
@@ -32,6 +33,13 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
 
     @Column(name = "usu_senha", nullable = false)
     private String senha;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "usu_provider", nullable = false)
+    private ProviderUsuario provider = ProviderUsuario.LOCAL;
+
+    @Column(name = "google_id", unique = true)
+    private String googleId;
 
 //    @Enumerated(EnumType.STRING)
 //    @Column(name = "usu_role", nullable = false)
@@ -60,6 +68,12 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
 
     public String getSenha() { return senha; }
     public void setSenha(String senha) { this.senha = senha; }
+
+    public ProviderUsuario getProvider() { return provider; }
+    public void setProvider(ProviderUsuario provider) { this.provider = provider; }
+
+    public String getGoogleId() { return googleId; }
+    public void setGoogleId(String googleId) { this.googleId = googleId; }
 
 //    public RoleEnum getRole() { return role; }
 //    public void setRole(RoleEnum role) { this.role = role; }

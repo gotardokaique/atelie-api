@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.QueryBuilder;
 import com.gen.core.db.TransactionDB;
+import com.gen.core.db.exception.NotFoundException;
 import com.gestao.api.entities.Usuario;
 
 import jakarta.persistence.NoResultException;
@@ -26,7 +27,7 @@ public class UsuarioServiceValidacao {
                     .where("email", Condicao.EQUAL, email.toLowerCase())
                     .one();
             return true;
-        } catch (NoResultException e) {
+        } catch (NotFoundException e) {
             return false;
         }
     }

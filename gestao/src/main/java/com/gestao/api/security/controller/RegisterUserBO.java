@@ -16,15 +16,26 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
+import com.gen.core.db.Condicao;
+import com.gen.core.db.QueryBuilder;
 import com.gen.core.db.TransactionDB;
+import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.security.SessionService;
 import com.gen.core.security.TokenService;
 import com.gen.core.utils.HttpUtils;
+import com.gen.core.utils.StringEncryptUtils;
+import com.gestao.api.bo.EmailBO;
+import com.gestao.api.controllers.DTOs.GoogleAuthRequest;
 import com.gestao.api.controllers.DTOs.LoginResponseDTO;
 import com.gestao.api.entities.Usuario;
+import com.gestao.api.enuns.ProviderUsuario;
 import com.gestao.api.enuns.RoleEnum;
+import com.gestao.api.security.redefinir.RedefinirSenhaService;
+import com.gestao.api.select.Select;
+import com.gestao.api.services.exceptions.BusinessException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class RegisterUserBO {
@@ -43,10 +54,17 @@ public class RegisterUserBO {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private RedefinirSenhaService redefinirSenhaService;
+
+    @Autowired
+    private StringEncryptUtils stringEncryptUtils;
+
     // ===================== LOGIN SECURITY CONFIG =====================
 
     private static final int MAX_TENTATIVAS_LOGIN = 5;
     private static final long BLOQUEIO_MINUTOS = 2;
+    private final EmailBO emailBO;
 
     // TTL geral da chave de tentativa (evita lixo eterno no Redis)
     // Pode ser mais longo que o bloqueio (ex: 30 min)
@@ -62,9 +80,12 @@ public class RegisterUserBO {
     private final UsuarioServiceValidacao usuarioServiceValidacao;
     private final TransactionDB trans;
 
-    public RegisterUserBO(UsuarioServiceValidacao usuarioServiceValidacao, TransactionDB trans) {
+    public RegisterUserBO(UsuarioServiceValidacao usuarioServiceValidacao, TransactionDB trans,
+            RedefinirSenhaService redefinirSenhaService, EmailBO emailBO) {
         this.usuarioServiceValidacao = usuarioServiceValidacao;
         this.trans = trans;
+        this.redefinirSenhaService = redefinirSenhaService;
+        this.emailBO = emailBO;
     }
 
     // ===================== MODEL INTERNO =====================
@@ -204,10 +225,8 @@ public class RegisterUserBO {
         try {
             return usuarioServiceValidacao.validarEmailJaCadastrado(email);
         } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            return true;
         }
-        return true;
     }
 
     public Boolean cadastrarUsuario(String nome, String email, String hashed, RoleEnum role) {
@@ -234,6 +253,19 @@ public class RegisterUserBO {
         if (!REGEX_EMAIL.matcher(email).matches()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", "Formato de e-mail inválido"));
+        }
+
+        try {
+            Usuario usuarioCheck = new QueryBuilder(trans).select()
+                    .from(Usuario.class)
+                    .where("email", Condicao.EQUAL, email)
+                    .one();
+            if (usuarioCheck.getProvider() == ProviderUsuario.GOOGLE) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Esta conta usa login com Google. Entre pelo botão do Google."));
+            }
+        } catch (Exception ignorado) {
+            // usuário não encontrado ou erro — fluxo normal trata adiante
         }
 
         String clientIp = extrairIpCliente(request);
@@ -322,6 +354,92 @@ public class RegisterUserBO {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Erro interno ao tentar autenticar. Tente novamente mais tarde."));
         }
+    }
+
+    public void processarRedefinirSenha(String email) {
+
+        try {
+            Usuario usuario = Select.buscarUsuarioPorEmail(trans, email);
+            String token = redefinirSenhaService.generateToken(usuario);
+
+            emailBO.criar().remetente().destinatario(email)
+                    .mensagem("Para redefinir sua senha, clique no link: " + token)
+                    .titulo("Recupere sua senha")
+                    .enviar();
+
+        } catch (Exception e) {
+            throw new BusinessException("Erro ao gerar token");
+        }
+
+        // UserDetails ud = repository.findByEmail(email);
+        // if (ud instanceof Usuario user) {
+        // String code = generateRandomCode(6);
+        // String codeKey = RESET_CODE_PREFIX + data.email();
+        // String attemptKey = RESET_ATTEMPT_PREFIX + data.email();
+        // redisTemplate.opsForValue().set(codeKey, code, CODE_EXPIRATION_MINUTES,
+        // TimeUnit.MINUTES);
+        // redisTemplate.delete(attemptKey);
+        // emailService.sendPasswordResetCode(data.email(), code);
+        // }
+    }
+
+    // ===================== AUTENTICAÇÃO GOOGLE =====================
+
+    public ResponseEntity<?> autenticarComGoogle(GoogleAuthRequest request, HttpServletResponse response)
+            throws Exception {
+        String email = request.getEmail().trim().toLowerCase();
+
+        // 1. Buscar por googleId
+        Usuario usuario = null;
+        try {
+            usuario = new QueryBuilder(trans).select()
+                    .from(Usuario.class)
+                    .where("googleId", Condicao.EQUAL, request.getGoogleId())
+                    .one();
+        } catch (Exception ignorado) {
+            // não encontrado por googleId
+        }
+
+        if (usuario == null) {
+            // 2. Buscar por email
+            Usuario porEmail = null;
+            try {
+                porEmail = new QueryBuilder(trans).select()
+                        .from(Usuario.class)
+                        .where("email", Condicao.EQUAL, email)
+                        .one();
+            } catch (Exception ignorado) {
+                // não encontrado por email
+            }
+
+            if (porEmail != null) {
+                // 3. Conta LOCAL com mesmo email — rejeitar
+                throw new BusinessException("Este email já está cadastrado com senha. Faça login com email e senha.");
+            }
+
+            // 4. Criar novo usuário Google
+            var novoUsuario = new Usuario();
+            novoUsuario.setEmail(email);
+            novoUsuario.setNome(request.getNome());
+            novoUsuario.setGoogleId(request.getGoogleId());
+            novoUsuario.setProvider(ProviderUsuario.GOOGLE);
+            novoUsuario.setSenha(stringEncryptUtils.encrypt(request.getGoogleId()));
+            novoUsuario.setAtivo(true);
+            trans.insert(novoUsuario);
+
+            // Re-fetch para garantir ID gerado pelo banco
+            usuario = new QueryBuilder(trans).select()
+                    .from(Usuario.class)
+                    .where("googleId", Condicao.EQUAL, request.getGoogleId())
+                    .one();
+        }
+
+        // 5. Gerar JWT — mesmo fluxo do login normal
+        var jwt = tokenService.generateToken(usuario);
+        sessionService.storeToken(usuario.getId(), jwt);
+        HttpUtils.addSecureCookie(response, "auth_token", jwt, 3600 * 24 * 3);
+
+        return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
 
     // ===================== IP HELPER =====================

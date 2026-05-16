@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gestao.api.controllers.DTOs.GoogleAuthRequest;
 import com.gestao.api.controllers.DTOs.UserMeDTO;
 
 import com.gen.core.security.SessionService;
@@ -88,6 +89,12 @@ public class AuthenticationController {
         return registerBO.processarLogin(email, senha, request, response);
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<?> loginComGoogle(@RequestBody @Valid GoogleAuthRequest dto,
+            jakarta.servlet.http.HttpServletResponse response) throws Exception {
+        return registerBO.autenticarComGoogle(dto, response);
+    }
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data) {
 
@@ -112,7 +119,8 @@ public class AuthenticationController {
 
         if (isSenhaValida == false) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(java.util.Map.of("message", "Senha fraca, tente usar caracteres especias, letras maiusculas..."));
+                    .body(java.util.Map.of("message",
+                            "Senha fraca, tente usar caracteres especias, letras maiusculas..."));
         }
 
         String hashed = passwordEncoder.encode(senha);
