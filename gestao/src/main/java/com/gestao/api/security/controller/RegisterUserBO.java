@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.QueryBuilder;
+
 import com.gen.core.db.TransactionDB;
 import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.security.SessionService;
