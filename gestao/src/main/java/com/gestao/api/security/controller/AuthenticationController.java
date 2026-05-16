@@ -28,6 +28,7 @@ import com.gestao.api.controllers.DTOs.LoginRequestDTO;
 import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
 import com.gestao.api.controllers.DTOs.ResetPasswordDTO;
 import com.gestao.api.entities.Usuario;
+import com.gestao.api.security.redefinir.dto.PasswordResetInput;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -38,31 +39,40 @@ public class AuthenticationController {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationController.class);
 
-    @Autowired private AuthenticationManager authenticationManager;
-    @Autowired private UsuarioRepository repository;
-    @Autowired private TokenService tokenService;
-    @Autowired private SessionService sessionService;
-    @Autowired private EmailService emailService;
-    @Autowired private StringRedisTemplate redisTemplate;
-    @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private RegisterUserBO registerBO;
+    @Autowired
+    private AuthenticationManager authenticationManager;
+    @Autowired
+    private UsuarioRepository repository;
+    @Autowired
+    private TokenService tokenService;
+    @Autowired
+    private SessionService sessionService;
+    @Autowired
+    private EmailService emailService;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private RegisterUserBO registerBO;
 
-    private static final String RESET_CODE_PREFIX       = "password:reset:code:";
-    private static final String RESET_ATTEMPT_PREFIX    = "password:reset:attempt:";
-    private static final long   CODE_EXPIRATION_MINUTES = 5;
-    private static final int    MAX_ATTEMPTS            = 5;
-    private static final long   ATTEMPT_BLOCK_MINUTES   = 10;
-    
+    private static final String RESET_CODE_PREFIX = "password:reset:code:";
+    private static final String RESET_ATTEMPT_PREFIX = "password:reset:attempt:";
+    private static final long CODE_EXPIRATION_MINUTES = 5;
+    private static final int MAX_ATTEMPTS = 5;
+    private static final long ATTEMPT_BLOCK_MINUTES = 10;
+
     private static final int MAX_TENTATIVAS_LOGIN = 5;
     private static final long BLOQUEIO_MINUTOS = 2;
-    private static final java.util.regex.Pattern REGEX_EMAIL =
-        java.util.regex.Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+    private static final java.util.regex.Pattern REGEX_EMAIL = java.util.regex.Pattern
+            .compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
     private static final java.util.Map<String, TentativaLogin> tentativasLogin = new java.util.HashMap<>();
 
     private static class TentativaLogin {
         int tentativas;
         java.time.LocalDateTime bloqueadoAte;
         java.time.LocalDateTime ultimaTentativa;
+
         TentativaLogin() {
             this.tentativas = 0;
             this.bloqueadoAte = null;
@@ -71,81 +81,88 @@ public class AuthenticationController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto, HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+    public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto, HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
         String email = dto.email();
         String senha = dto.senha();
         return registerBO.processarLogin(email, senha, request, response);
     }
-    
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data) {
-    	
+
         String email = data.email().trim().toLowerCase();
         String senha = data.senha();
-        String nome = data.nome();    
-    	
-    	if (email.length() >= 50 || senha.length() >= 70) {
-    		return ResponseEntity.status(HttpStatus.CONFLICT)
-    		    .body("E-mail e ou senha muito longos...");
+        String nome = data.nome();
 
-    	}
-    	
-    	
-    	boolean jaRegistrado = registerBO.isEmailJaRegistrado(email);
-    	
+        if (email.length() >= 50 || senha.length() >= 70) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", "E-mail e ou senha muito longos..."));
+
+        }
+
+        boolean jaRegistrado = registerBO.isEmailJaRegistrado(email);
+
         if (jaRegistrado) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                                 .body("Tente outro e-mail.");
+                    .body(java.util.Map.of("message", "Tente outro e-mail."));
         }
-        
+
         boolean isSenhaValida = registerBO.validarSenhaForte(senha);
-        
+
         if (isSenhaValida == false) {
-        	 return ResponseEntity.status(HttpStatus.CONFLICT)
-                     .body("Senha fraca, tente usar caracteres especias, letras maiusculas...");
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", "Senha fraca, tente usar caracteres especias, letras maiusculas..."));
         }
 
         String hashed = passwordEncoder.encode(senha);
         boolean isCadastradado = registerBO.cadastrarUsuario(nome, email, hashed, null);
-        
+
         if (isCadastradado == false) {
-        	return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("Hmm... algo deu errado, verifique sua conexão..");
-        } 
-        
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", "Hmm... algo deu errado, verifique sua conexão.."));
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody @Valid ForgotPasswordDTO data) {
+    public ResponseEntity<?> forgotPassword(@RequestBody @Valid PasswordResetInput data) {
 
-        UserDetails ud = repository.findByEmail(data.email());
-        if (ud instanceof Usuario user) {
-            String code       = generateRandomCode(6);
-            String codeKey    = RESET_CODE_PREFIX + data.email();
-            String attemptKey = RESET_ATTEMPT_PREFIX + data.email();
-            redisTemplate.opsForValue().set(codeKey, code, CODE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
-            redisTemplate.delete(attemptKey);
-            emailService.sendPasswordResetCode(data.email(), code);
+        try {
+            registerBO.processarRedefinirSenha(data.email());
+        } catch (Exception e) {
+            // TODO: handle exception
         }
+        // UserDetails ud = repository.findByEmail(data.email());
+        // if (ud instanceof Usuario user) {
+        // String code = generateRandomCode(6);
+        // String codeKey = RESET_CODE_PREFIX + data.email();
+        // String attemptKey = RESET_ATTEMPT_PREFIX + data.email();
+        // redisTemplate.opsForValue().set(codeKey, code, CODE_EXPIRATION_MINUTES,
+        // TimeUnit.MINUTES);
+        // redisTemplate.delete(attemptKey);
+        // emailService.sendPasswordResetCode(data.email(), code);
+        // }
         return ResponseEntity.ok("Se o e-mail existir, você receberá um código de redefinição.");
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody @Valid ResetPasswordDTO data) {
-        String email      = data.email();
-        String code       = data.code();
-        String newPass    = data.newPassword();
+        String email = data.email();
+        String code = data.code();
+        String newPass = data.newPassword();
         String attemptKey = RESET_ATTEMPT_PREFIX + email;
-        String codeKey    = RESET_CODE_PREFIX + email;
+        String codeKey = RESET_CODE_PREFIX + email;
 
         Long attempts = redisTemplate.opsForValue().increment(attemptKey);
-        if (attempts == null) attempts = 1L;
+        if (attempts == null)
+            attempts = 1L;
         redisTemplate.expire(attemptKey, ATTEMPT_BLOCK_MINUTES + CODE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
 
         if (attempts > MAX_ATTEMPTS) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                                 .body("Muitas tentativas. Tente novamente em " + ATTEMPT_BLOCK_MINUTES + " minutos.");
+                    .body("Muitas tentativas. Tente novamente em " + ATTEMPT_BLOCK_MINUTES + " minutos.");
         }
 
         String stored = redisTemplate.opsForValue().get(codeKey);
@@ -189,7 +206,7 @@ public class AuthenticationController {
 
     private String generateRandomCode(int length) {
         var rnd = new SecureRandom();
-        var sb  = new StringBuilder(length);
+        var sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
             sb.append(rnd.nextInt(10));
         }
