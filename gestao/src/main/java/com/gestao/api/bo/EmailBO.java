@@ -36,7 +36,7 @@ public class EmailBO {
     public EmailBO criar() {
         this.destinatario = null;
         this.remetente =  null;
-        this.senhaApp = null;
+        this.senhaApp =  null;
         this.titulo = null;
         this.corpo = null;
         return this;
