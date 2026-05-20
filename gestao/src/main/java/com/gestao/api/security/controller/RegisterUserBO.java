@@ -1,5 +1,7 @@
 package com.gestao.api.security.controller;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -7,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +63,9 @@ public class RegisterUserBO {
 
     @Autowired
     private StringEncryptUtils stringEncryptUtils;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     // ===================== LOGIN SECURITY CONFIG =====================
 
@@ -358,30 +364,135 @@ public class RegisterUserBO {
     }
 
     public void processarRedefinirSenha(String email) {
-
         try {
             Usuario usuario = Select.buscarUsuarioPorEmail(trans, email);
             String token = redefinirSenhaService.generateToken(usuario);
+            String encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
+            String resetLink = frontendUrl + "/reset-password?token=" + encodedToken;
 
             emailBO.criar().remetente().destinatario(email)
-                    .mensagem("Para redefinir sua senha, clique no link: " + token)
-                    .titulo("Recupere sua senha")
+                    .mensagem(buildPasswordResetEmail(resetLink, usuario.getNome()))
+                    .titulo("Redefinição de Senha — La Femme Ateliê")
                     .enviar();
 
         } catch (Exception e) {
             throw new BusinessException("Erro ao gerar token");
         }
+    }
 
-        // UserDetails ud = repository.findByEmail(email);
-        // if (ud instanceof Usuario user) {
-        // String code = generateRandomCode(6);
-        // String codeKey = RESET_CODE_PREFIX + data.email();
-        // String attemptKey = RESET_ATTEMPT_PREFIX + data.email();
-        // redisTemplate.opsForValue().set(codeKey, code, CODE_EXPIRATION_MINUTES,
-        // TimeUnit.MINUTES);
-        // redisTemplate.delete(attemptKey);
-        // emailService.sendPasswordResetCode(data.email(), code);
-        // }
+    public void resetarSenha(String token, String novaSenha) {
+        try {
+            redefinirSenhaService.changePassword(novaSenha, token);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException("Erro ao redefinir senha");
+        }
+    }
+
+    private static String buildPasswordResetEmail(String resetLink, String nome) {
+        String saudacao = (nome != null && !nome.isBlank()) ? ", " + nome : "";
+        String ano = String.valueOf(java.time.Year.now().getValue());
+        return
+            "<!DOCTYPE html>" +
+            "<html lang='pt-BR'><head>" +
+            "<meta charset='UTF-8'>" +
+            "<meta name='viewport' content='width=device-width,initial-scale=1.0'>" +
+            "<title>Redefini&ccedil;&atilde;o de Senha</title></head>" +
+            "<body style='margin:0;padding:0;background-color:#f0ece6;" +
+            "font-family:Helvetica Neue,Arial,sans-serif;'>" +
+
+            "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'" +
+            " style='background-color:#f0ece6;padding:48px 16px;'>" +
+            "<tr><td align='center'>" +
+
+            // ── CARD ─────────────────────────────────────────────────────────
+            "<table role='presentation' cellpadding='0' cellspacing='0' border='0'" +
+            " style='width:100%;max-width:560px;background-color:#ffffff;" +
+            "border-radius:8px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.10);'>" +
+
+            // HEADER
+            "<tr><td style='background-color:#111111;padding:38px 48px 34px;text-align:center;'>" +
+            "<p style='margin:0 0 8px 0;font-size:10px;letter-spacing:5px;color:#b8956a;" +
+            "text-transform:uppercase;font-weight:600;'>Gest&atilde;o de Atel&icirc;</p>" +
+            "<h1 style='margin:0;color:#ffffff;font-size:28px;font-weight:300;" +
+            "letter-spacing:4px;text-transform:uppercase;'>La Femme</h1>" +
+            "<div style='width:36px;height:2px;background-color:#b8956a;margin:14px auto 0;'></div>" +
+            "</td></tr>" +
+
+            // Gold gradient bar
+            "<tr><td style='height:3px;" +
+            "background:linear-gradient(90deg,#6b4e10,#c9a96e,#e8d5a3,#c9a96e,#6b4e10);" +
+            "font-size:0;line-height:3px;'>&nbsp;</td></tr>" +
+
+            // BODY
+            "<tr><td style='padding:52px 48px 44px;text-align:center;'>" +
+
+            "<h2 style='margin:0 0 22px;color:#111111;font-size:22px;" +
+            "font-weight:600;letter-spacing:-0.3px;'>Redefini&ccedil;&atilde;o de Senha</h2>" +
+
+            "<p style='margin:0 0 6px;color:#333333;font-size:15px;line-height:1.7;'>" +
+            "Ol&aacute;" + saudacao + ",</p>" +
+            "<p style='margin:0 0 36px;color:#666666;font-size:15px;line-height:1.8;'>" +
+            "Recebemos uma solicita&ccedil;&atilde;o de redefini&ccedil;&atilde;o de senha " +
+            "para sua conta.<br>Clique no bot&atilde;o abaixo para criar uma nova senha " +
+            "com seguran&ccedil;a.</p>" +
+
+            // CTA button
+            "<a href='" + resetLink + "'" +
+            " style='display:inline-block;background-color:#111111;color:#c9a96e;" +
+            "text-decoration:none;padding:16px 52px;border-radius:2px;" +
+            "font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;" +
+            "border:1.5px solid #c9a96e;'>Redefinir Minha Senha</a>" +
+
+            // Divider
+            "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'" +
+            " style='margin-top:40px;margin-bottom:28px;'><tr>" +
+            "<td style='height:1px;background-color:#ede8e0;font-size:0;line-height:1px;'>" +
+            "&nbsp;</td></tr></table>" +
+
+            // Notice — expiry
+            "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'>" +
+            "<tr><td style='background-color:#faf7f3;border-radius:6px;padding:18px 22px;" +
+            "border-left:3px solid #c9a96e;text-align:left;'>" +
+            "<p style='margin:0 0 5px;color:#111111;font-size:13px;font-weight:700;'>" +
+            "&#8987;&nbsp; Validade do link</p>" +
+            "<p style='margin:0;color:#777777;font-size:13px;line-height:1.6;'>" +
+            "Este link expira em <strong style='color:#111111;'>5 minutos</strong>. " +
+            "Solicite um novo caso ele expire.</p>" +
+            "</td></tr>" +
+            "<tr><td style='height:12px;'></td></tr>" +
+
+            // Notice — not you
+            "<tr><td style='background-color:#faf7f3;border-radius:6px;padding:18px 22px;" +
+            "border-left:3px solid #b8956a;text-align:left;'>" +
+            "<p style='margin:0 0 5px;color:#111111;font-size:13px;font-weight:700;'>" +
+            "&#128274;&nbsp; N&atilde;o reconhece esta solicita&ccedil;&atilde;o?</p>" +
+            "<p style='margin:0;color:#777777;font-size:13px;line-height:1.6;'>" +
+            "Se voc&ecirc; n&atilde;o solicitou a redefini&ccedil;&atilde;o, ignore este " +
+            "e-mail. Sua senha permanece inalterada.</p>" +
+            "</td></tr>" +
+            "</table>" +
+
+            "</td></tr>" +
+
+            // FOOTER
+            "<tr><td style='background-color:#111111;padding:28px 48px;text-align:center;'>" +
+            "<p style='margin:0 0 8px;color:#b8956a;font-size:10px;letter-spacing:3px;" +
+            "text-transform:uppercase;font-weight:500;'>La Femme Atel&icirc;</p>" +
+            "<p style='margin:0;color:#555555;font-size:11px;line-height:1.7;'>" +
+            "&copy; " + ano + " Todos os direitos reservados &nbsp;&middot;&nbsp; " +
+            "N&atilde;o responda este e-mail</p>" +
+            "</td></tr>" +
+
+            "</table>" +
+
+            "<p style='margin:22px 0 0;color:#aaaaaa;font-size:11px;text-align:center;'>" +
+            "Voc&ecirc; recebeu este e-mail porque solicitou a redefini&ccedil;&atilde;o " +
+            "de senha da sua conta.</p>" +
+
+            "</td></tr></table>" +
+            "</body></html>";
     }
 
     // ===================== AUTENTICAÇÃO GOOGLE =====================

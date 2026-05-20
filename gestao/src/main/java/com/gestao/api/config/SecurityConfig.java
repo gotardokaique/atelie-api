@@ -26,12 +26,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.gen.core.api.PublicEndpointRegistry;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.JwtAuthenticationFilter;
-
-import jakarta.annotation.PostConstruct;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +38,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final DAOController daoController;
+    private final PublicEndpointRegistry publicEndpointRegistry;
 
     @Value("${app.security.cors.allowed-origins:https://genfinance.com.br}")
     private List<String> allowedOrigins;
@@ -47,9 +47,11 @@ public class SecurityConfig {
     private boolean requireHttps;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          DAOController daoController) {
+                          DAOController daoController,
+                          PublicEndpointRegistry publicEndpointRegistry) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.daoController = daoController;
+        this.publicEndpointRegistry = publicEndpointRegistry;
     }
 
     @Bean
@@ -81,7 +83,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
         		// Pré-flight CORS
         		.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-        		.requestMatchers("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/google").permitAll()
+        		// Endpoints marcados com @MethodMapping(isPublic = true) no gen-core
+        		.requestMatchers(req -> publicEndpointRegistry.isPublic(req.getRequestURI())).permitAll()
         		.anyRequest().authenticated()
         		)
 
