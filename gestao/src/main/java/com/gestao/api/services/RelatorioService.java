@@ -661,9 +661,21 @@ public class RelatorioService {
     private byte[] renderCsv(TabelaRelatorio tabela) {
         CsvService.Builder builder = CsvService.export().headers(tabela.colunas);
         for (Object[] row : tabela.linhas) {
-            builder.row(row);
+            builder.row(sanitizarCelulasCsv(row));
         }
         return builder.getBytes();
+    }
+
+    // Remove ';' de qualquer célula textual antes de entrar no CSV — evita que
+    // dados vindos do cliente quebrem o delimitador do padrão BR.
+    private Object[] sanitizarCelulasCsv(Object[] row) {
+        if (row == null) return null;
+        Object[] limpas = new Object[row.length];
+        for (int i = 0; i < row.length; i++) {
+            Object val = row[i];
+            limpas[i] = (val instanceof String s) ? s.replaceAll(";", "") : val;
+        }
+        return limpas;
     }
 
     // =========================================================
