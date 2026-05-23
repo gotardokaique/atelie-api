@@ -151,11 +151,21 @@ public class PessoaService {
     @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
     public void deletarPessoa(Long id) {
         Pessoa pessoaExistente = buscarPessoaById(id);
+
         try {
-            daoController.delete(pessoaExistente);
-        } catch (Exception e) {
+            daoController
+                    .select("id")
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .where("pessoa.id", Condicao.EQUAL, id)
+                    .limit(1)
+                    .one();
             throw new BusinessException("Não é possível deletar um cliente que possui serviços cadastrados.");
+        } catch (NotFoundException e) {
+            // Nenhum serviço vinculado — pode deletar
         }
+
+        daoController.delete(pessoaExistente);
     }
 
     // ===================== DETALHES DO CLIENTE =====================
