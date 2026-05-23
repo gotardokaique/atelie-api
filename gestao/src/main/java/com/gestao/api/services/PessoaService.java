@@ -149,7 +149,7 @@ public class PessoaService {
 
     @Transactional
     @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
-    public void deletarPessoa(Long id) {
+    public void deletarPessoa(Long id) throws Exception {
         Pessoa pessoaExistente = buscarPessoaById(id);
 
         try {
@@ -158,7 +158,6 @@ public class PessoaService {
                     .from(Servico.class)
                     .leftJoin("pessoa")
                     .where("pessoa.id", Condicao.EQUAL, id)
-                    .limit(1)
                     .one();
             throw new BusinessException("Não é possível deletar um cliente que possui serviços cadastrados.");
         } catch (NotFoundException e) {

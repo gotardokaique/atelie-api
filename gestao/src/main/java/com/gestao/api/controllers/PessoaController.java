@@ -55,7 +55,7 @@ public class PessoaController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletarPessoa(@PathVariable Long id) {
+    public ResponseEntity<Void> deletarPessoa(@PathVariable Long id) throws Exception {
         pessoaService.deletarPessoa(id);
         return ResponseEntity.noContent().build();
     }
