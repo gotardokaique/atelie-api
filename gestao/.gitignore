@@ -1,0 +1,16 @@
+target/
+bin/
+.settings/
+.classpath
+.project
+.factorypath
+.gitignore.save
+.DS_Store
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.log
+.env
+.env.local

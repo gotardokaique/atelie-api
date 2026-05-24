@@ -26,12 +26,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
+import com.gen.core.api.PublicEndpointRegistry;
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.JwtAuthenticationFilter;
-
-import jakarta.annotation.PostConstruct;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +38,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final DAOController daoController;
+    private final PublicEndpointRegistry publicEndpointRegistry;
 
     @Value("${app.security.cors.allowed-origins:https://genfinance.com.br}")
     private List<String> allowedOrigins;
@@ -47,9 +47,11 @@ public class SecurityConfig {
     private boolean requireHttps;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          DAOController daoController) {
+                          DAOController daoController,
+                          PublicEndpointRegistry publicEndpointRegistry) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.daoController = daoController;
+        this.publicEndpointRegistry = publicEndpointRegistry;
     }
 
     @Bean
@@ -63,7 +65,6 @@ public class SecurityConfig {
                                                    AuthenticationProvider authenticationProvider) throws Exception {
 
     	http
-        // JWT + stateless => CSRF desabilitado
         .csrf(AbstractHttpConfigurer::disable)
 
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -74,7 +75,6 @@ public class SecurityConfig {
         .logout(AbstractHttpConfigurer::disable)
         .rememberMe(AbstractHttpConfigurer::disable);
     	
-        // HTTPS obrigatório (em produção) usando API nova
         if (requireHttps) {
             http.redirectToHttps(Customizer.withDefaults());
         }
@@ -83,13 +83,13 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
         		// Pré-flight CORS
         		.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-        		.requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
+        		// Endpoints marcados com @MethodMapping(isPublic = true) no gen-core
+        		.requestMatchers(req -> publicEndpointRegistry.isPublic(req.getRequestURI())).permitAll()
         		.anyRequest().authenticated()
         		)
 
             .authenticationProvider(authenticationProvider)
 
-            // Filtro de JWT antes do UsernamePasswordAuthenticationFilter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
             .exceptionHandling(ex -> ex
@@ -106,14 +106,11 @@ public class SecurityConfig {
             )
 
             .headers(headers -> headers
-                // Impede iframes (clickjacking)
                 .frameOptions(frame -> frame.deny())
-                // Remove sniffing de tipo de conteúdo
                 .contentTypeOptions(Customizer.withDefaults())
-                // HSTS se HTTPS estiver exigido (browsers só falarão HTTPS com esse host)
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
-                    .maxAgeInSeconds(31536000) // 1 ano
+                    .maxAgeInSeconds(31536000) 
                 )
             );
 
@@ -122,8 +119,6 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
-
-        // hash dummy para timing mitigations quando usuário não existe
         final String DUMMY_HASH = "$2a$12$QeE1uWZKX8kI6gPlmYl5ye2oQ7wZJrGBwSJn1sRnTKe5BvWs3pQbC";
 
         return new AuthenticationProvider() {
@@ -141,7 +136,6 @@ public class SecurityConfig {
 
                 String email = username.trim().toLowerCase();
 
-                // Pequena barreira contra inputs absurdos
                 if (email.length() > 120 || senhaRaw.length() > 120) {
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
                 }
@@ -155,7 +149,7 @@ public class SecurityConfig {
                             .limit(1)
                             .one();
                 } catch (Exception e) {
-                    // Usuário não existe: queima tempo com um matches no dummy
+                	
                     passwordEncoder.matches(senhaRaw, DUMMY_HASH);
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
                 }
@@ -191,23 +185,22 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // carrega de propriedade: app.security.cors.allowed-origins
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));
-        config.setExposedHeaders(List.of("Authorization"));
+        config.setExposedHeaders(List.of("Set-Cookie"));
+        config.setAllowedHeaders(List.of("Content-Type", "Accept", "Origin", "Cache-Control"));
+
         config.setAllowCredentials(true);
-        // evita preflight toda hora (opcional)
-        config.setMaxAge(3600L);
+        config.setMaxAge(7200L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
     
-    @PostConstruct
-    public void logCorsOrigins() {
-        System.out.println(">>> CORS allowedOrigins = " + allowedOrigins);
-        System.out.println(">>> requireHttps = " + requireHttps);
-    }
+//    @PostConstruct
+//    public void logCorsOrigins() {
+//        System.out.println(">>> CORS allowedOrigins = " + allowedOrigins);
+//        System.out.println(">>> requireHttps = " + requireHttps);
+//    }
 }

@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.gen.core.db.filter.FilterQuery;
+import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.services.PessoaService;
@@ -21,14 +23,14 @@ public class PessoaController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> criarPessoa(@RequestBody PessoaDTO pessoaDTO) {
+    public ResponseEntity<Void> criarPessoa(@RequestBody PessoaDTO pessoaDTO) throws Exception {
         pessoaService.criarPessoa(pessoaDTO);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @GetMapping
-    public ResponseEntity<List<PessoaDTO>> listarTodasPessoas() {
-        return ResponseEntity.ok(pessoaService.listarTodasPessoas());
+    public ResponseEntity<List<PessoaDTO>> listarTodasPessoas(FilterQuery filter) {
+        return ResponseEntity.ok(pessoaService.listarTodasPessoas(filter));
     }
 
     @GetMapping("/clientes")
@@ -41,6 +43,11 @@ public class PessoaController {
         return ResponseEntity.ok(pessoaService.buscarPessoaPorId(id));
     }
 
+    @GetMapping("/{id}/detalhes")
+    public ResponseEntity<ClienteDetalhesDTO> buscarDetalhesCliente(@PathVariable Long id) {
+        return ResponseEntity.ok(pessoaService.buscarDetalhesCliente(id));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Void> atualizarPessoa(@PathVariable Long id, @RequestBody PessoaDTO pessoaDTO) {
         pessoaService.atualizarPessoa(id, pessoaDTO);
@@ -48,7 +55,7 @@ public class PessoaController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletarPessoa(@PathVariable Long id) {
+    public ResponseEntity<Void> deletarPessoa(@PathVariable Long id) throws Exception {
         pessoaService.deletarPessoa(id);
         return ResponseEntity.noContent().build();
     }
