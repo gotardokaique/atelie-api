@@ -582,7 +582,9 @@ public class AiService {
                 (String) input.get(DESCRICAO_SERVICO),
                 parseDateSafely(input.get(PRAZO_ENTREGA)),
                 input.get(VALOR) != null ? new BigDecimal(input.get(VALOR).toString()) : null,
-                input.get(URGENTE) != null ? (Boolean) input.get(URGENTE) : false);
+                input.get(URGENTE) != null ? (Boolean) input.get(URGENTE) : false,
+                null,
+                false);
 
         servicoService.criarServico(request);
         log.info("[Lia] OS criada com sucesso para '{}'.", cliente);
@@ -607,7 +609,9 @@ public class AiService {
                 campos.get(VALOR) != null
                         ? new BigDecimal(campos.get(VALOR).toString())
                         : atual.valor(),
-                campos.get(URGENTE) != null ? (Boolean) campos.get(URGENTE) : atual.urgente());
+                campos.get(URGENTE) != null ? (Boolean) campos.get(URGENTE) : atual.urgente(),
+                null,
+                false);
 
         if (campos.containsKey("statusServico")) {
             log.info("[Lia] Atualizando status da OS {} para '{}'.", id, campos.get("statusServico"));
