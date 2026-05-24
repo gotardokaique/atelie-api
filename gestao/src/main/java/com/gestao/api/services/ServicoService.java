@@ -24,6 +24,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
+import com.gen.core.db.WhereDB;
+import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
@@ -34,8 +38,6 @@ import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
-import com.gestao.api.db.Condicao;
-import com.gestao.api.db.DAOController;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
@@ -60,10 +62,7 @@ public class ServicoService {
     }
 
     @Transactional
-    @CacheEvict(
-            value = CACHE_SERVICOS_EM_ABERTO,
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public void criarServico(ServicoRequestDTO requestDTO) {
         Pessoa pessoa = null;
 
@@ -101,46 +100,37 @@ public class ServicoService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(
-            value = CACHE_SERVICOS_EM_ABERTO,
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
-    public List<ServicoResponseDTO> listarServicosEmAberto() {
+    public List<ServicoResponseDTO> listarServicosEmAberto(FilterQuery filter) {
+
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+        where.add("statusServico", Condicao.IN,
+                StatusServico.PENDENTE,
+                StatusServico.EM_ANDAMENTO,
+                StatusServico.URGENTE);
+
+        if (filter != null) {
+            filter.withEntityClass(Servico.class).applyTo(where);
+        }
 
         List<Servico> servicos;
         try {
-        	servicos = daoController
-        		    .select()
-        		    .from(Servico.class)
-        		    .leftJoin("pessoa")
-        		    .join("usuario")
-        		    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-        		    .where("statusServico", Condicao.IN,
-        		        StatusServico.PENDENTE,
-        		        StatusServico.EM_ANDAMENTO,
-        		        StatusServico.URGENTE
-        		    )
-
-        		    // 1) urgentes primeiro (flag urgente OU status URGENTE)
-        		    .orderByRaw(
-        		        "CASE WHEN (c.urgente = true OR c.statusServico = ?) THEN 0 ELSE 1 END ASC",
-        		        StatusServico.URGENTE
-        		    )
-
-        		    // 2) com previsão antes de sem previsão
-        		    .orderByRaw("CASE WHEN c.dataEntregaPrevista IS NULL THEN 1 ELSE 0 END ASC")
-
-        		    // 3) vencidos/hoje primeiro
-        		    .orderByRaw("CASE WHEN c.dataEntregaPrevista IS NOT NULL AND c.dataEntregaPrevista <= CURRENT_DATE THEN 0 ELSE 1 END ASC")
-
-        		    // 4) mais próximo primeiro
-        		    .orderBy("dataEntregaPrevista", true)
-
-        		    // 5) mais velho primeiro
-        		    .orderBy("dataCadastro", true)
-
-        		    .list();
-
+            servicos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where(where)
+                    .orderByRaw(
+                            "CASE WHEN (c.urgente = true OR c.statusServico = ?) THEN 0 ELSE 1 END ASC",
+                            StatusServico.URGENTE)
+                    .orderByRaw("CASE WHEN c.dataEntregaPrevista IS NULL THEN 1 ELSE 0 END ASC")
+                    .orderByRaw(
+                            "CASE WHEN c.dataEntregaPrevista IS NOT NULL AND c.dataEntregaPrevista <= CURRENT_DATE THEN 0 ELSE 1 END ASC")
+                    .orderBy("dataEntregaPrevista", true)
+                    .orderBy("dataCadastro", true)
+                    .limit(200)
+                    .list();
 
         } catch (NotFoundException not) {
             servicos = new ArrayList<>();
@@ -150,15 +140,24 @@ public class ServicoService {
     }
 
     @Transactional(readOnly = true)
-    public List<ServicoResponseDTO> listarServicosFinalizados() {
+    public List<ServicoResponseDTO> listarServicosFinalizados(FilterQuery filter) {
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+        where.add("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO);
+
+        if (filter != null) {
+            filter.withEntityClass(Servico.class).applyTo(where);
+        }
+
         List<Servico> servicos = daoController
                 .select()
                 .from(Servico.class)
-                .join("pessoa")
+                .leftJoin("pessoa")
                 .join("usuario")
-                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
-                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where(where)
+                .orderBy("statusPagamento", false)
                 .orderBy("dataCadastro", false)
+                .limit(100)
                 .list();
 
         return ServicoResponseDTO.refactor(servicos);
@@ -184,10 +183,7 @@ public class ServicoService {
     }
 
     @Transactional
-    @CacheEvict(
-            value = CACHE_SERVICOS_EM_ABERTO,
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public void atualizarStatusServico(Long id, StatusServico novoStatus) {
         Servico servico = buscarServicoById(id);
 
@@ -201,10 +197,7 @@ public class ServicoService {
     }
 
     @Transactional
-    @CacheEvict(
-            value = CACHE_SERVICOS_EM_ABERTO,
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public void atualizarStatusPagamento(Long id, StatusPagamento novoStatus) {
         Servico servico = buscarServicoById(id);
         servico.setStatusPagamento(novoStatus);
@@ -212,10 +205,7 @@ public class ServicoService {
     }
 
     @Transactional
-    @CacheEvict(
-            value = CACHE_SERVICOS_EM_ABERTO,
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public void atualizarServicoCompleto(Long id, ServicoRequestDTO requestDTO) {
         Servico servicoExistente = buscarServicoById(id);
 
@@ -249,10 +239,7 @@ public class ServicoService {
     }
 
     @Transactional
-    @CacheEvict(
-            value = CACHE_SERVICOS_EM_ABERTO,
-            key = "T(com.gestao.api.context.UserContext).getIdUsuario()"
-    )
+    @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public void deletarServico(Long id) {
         Servico servicoExistente = buscarServicoById(id);
         daoController.delete(servicoExistente);
@@ -300,11 +287,9 @@ public class ServicoService {
                 pendenteCount,
                 emAndamentoCount,
                 urgenteCount,
-                finalizadosNoMesCount
-        );
+                finalizadosNoMesCount);
     }
 
-    
     @Transactional(readOnly = true)
     private long countByStatusNoMes(StatusServico status, LocalDateTime inicio, LocalDateTime fim) {
         List<Servico> servicos = daoController
@@ -372,8 +357,7 @@ public class ServicoService {
                 .filter(s -> s.getDataCadastro() != null)
                 .collect(Collectors.groupingBy(
                         s -> s.getDataCadastro().getHour(),
-                        Collectors.counting()
-                ));
+                        Collectors.counting()));
 
         return contagemPorHora.entrySet().stream()
                 .map(e -> new HorarioPicoDTO(e.getKey(), e.getValue()))
@@ -721,10 +705,12 @@ public class ServicoService {
 
         Collections.sort(ranking, (a, b) -> {
             int c1 = Long.compare(b.getQuantidade(), a.getQuantidade());
-            if (c1 != 0) return c1;
+            if (c1 != 0)
+                return c1;
 
             int c2 = b.getTotal().compareTo(a.getTotal());
-            if (c2 != 0) return c2;
+            if (c2 != 0)
+                return c2;
 
             return a.getNome().compareToIgnoreCase(b.getNome());
         });
@@ -732,6 +718,36 @@ public class ServicoService {
         return ranking.stream()
                 .limit(10)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> getServicosProximosPrazo() {
+        LocalDate hoje = LocalDate.now(clock);
+        LocalDate limite = hoje.plusDays(2);
+
+        List<Servico> todos;
+        try {
+            todos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where("statusServico", Condicao.IN,
+                            StatusServico.PENDENTE,
+                            StatusServico.EM_ANDAMENTO,
+                            StatusServico.URGENTE)
+                    .list();
+        } catch (Exception e) {
+            return List.of();
+        }
+
+        return todos.stream()
+                .filter(s -> s.getDataEntregaPrevista() != null)
+                .filter(s -> !s.getDataEntregaPrevista().isBefore(hoje))
+                .filter(s -> !s.getDataEntregaPrevista().isAfter(limite))
+                .map(ServicoResponseDTO::refactor)
+                .collect(Collectors.toList());
     }
 
     public List<Servico> gerarRelatorio() {
@@ -742,7 +758,7 @@ public class ServicoService {
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .list();
     }
-    
+
     @Transactional(readOnly = true)
     public List<ServicosPorMesDTO> getServicosCriadosUltimos6MesesAgrupado() {
 
@@ -753,7 +769,7 @@ public class ServicoService {
         YearMonth inicioYm = mesAtual.minusMonths(5);
 
         LocalDateTime inicio = inicioYm.atDay(1).atStartOfDay();
-        LocalDateTime fimExclusivo = mesAtual.plusMonths(1).atDay(1).atStartOfDay(); 
+        LocalDateTime fimExclusivo = mesAtual.plusMonths(1).atDay(1).atStartOfDay();
 
         Map<YearMonth, Long> contagem = new LinkedHashMap<>();
         for (int i = 0; i < 6; i++) {
@@ -771,10 +787,12 @@ public class ServicoService {
 
         // 3) Agrupa em memória por YearMonth
         for (Servico ser : servicos) {
-            if (ser.getDataCadastro() == null) continue;
+            if (ser.getDataCadastro() == null)
+                continue;
             YearMonth ym = YearMonth.from(ser.getDataCadastro());
-            
-            if (ym.isBefore(inicioYm) || ym.isAfter(mesAtual)) continue;
+
+            if (ym.isBefore(inicioYm) || ym.isAfter(mesAtual))
+                continue;
             contagem.put(ym, contagem.getOrDefault(ym, 0L) + 1L);
         }
 

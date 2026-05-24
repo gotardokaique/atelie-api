@@ -9,13 +9,15 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.gen.core.contracts.UserAccount;
+import com.gestao.api.enuns.ProviderUsuario;
 import com.gestao.api.enuns.RoleEnum;
 
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements UserDetails, Serializable {
+public class Usuario implements UserDetails, Serializable, UserAccount {
 
     private static final long serialVersionUID = 1L;
 
@@ -31,6 +33,13 @@ public class Usuario implements UserDetails, Serializable {
 
     @Column(name = "usu_senha", nullable = false)
     private String senha;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "usu_provider", nullable = false)
+    private ProviderUsuario provider = ProviderUsuario.LOCAL;
+
+    @Column(name = "google_id", unique = true)
+    private String googleId;
 
 //    @Enumerated(EnumType.STRING)
 //    @Column(name = "usu_role", nullable = false)
@@ -59,6 +68,12 @@ public class Usuario implements UserDetails, Serializable {
 
     public String getSenha() { return senha; }
     public void setSenha(String senha) { this.senha = senha; }
+
+    public ProviderUsuario getProvider() { return provider; }
+    public void setProvider(ProviderUsuario provider) { this.provider = provider; }
+
+    public String getGoogleId() { return googleId; }
+    public void setGoogleId(String googleId) { this.googleId = googleId; }
 
 //    public RoleEnum getRole() { return role; }
 //    public void setRole(RoleEnum role) { this.role = role; }
@@ -103,6 +118,30 @@ public class Usuario implements UserDetails, Serializable {
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String getPasswordHash() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Long getUnidadeId() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setPasswordHash(String encoded) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public String getRole() {
 		// TODO Auto-generated method stub
 		return null;
 	}
