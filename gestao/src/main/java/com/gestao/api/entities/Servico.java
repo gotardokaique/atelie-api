@@ -5,6 +5,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.gestao.api.entities.Produto;
+
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 
@@ -36,6 +38,10 @@ public class Servico implements Serializable{
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "produto_id")
+    private Produto produto;
 
     @Column(name = "descricao")
     private String descricao;
@@ -82,6 +88,14 @@ public class Servico implements Serializable{
 
     public void setPessoa(Pessoa pessoa) {
         this.pessoa = pessoa;
+    }
+
+    public Produto getProduto() {
+        return produto;
+    }
+
+    public void setProduto(Produto produto) {
+        this.produto = produto;
     }
 
     public String getDescricao() {

@@ -45,6 +45,11 @@ import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.NotFoundException;
+import com.gestao.api.entities.FichaTecnica;
+import com.gestao.api.entities.Produto;
+import com.gestao.api.controllers.DTOs.DespesaDTO;
+import com.gestao.api.entities.Despesa;
+import com.gestao.api.bo.EstoqueBO;
 
 @Service
 public class ServicoService {
@@ -55,10 +60,16 @@ public class ServicoService {
 
     private final DAOController daoController;
     private final Clock clock;
+    private final DespesaService despesaService;
+    private final ProdutoService produtoService;
+    private final EstoqueBO estoqueBO;
 
-    public ServicoService(DAOController daoController, Clock clock) {
+    public ServicoService(DAOController daoController, Clock clock, DespesaService despesaService, ProdutoService produtoService, EstoqueBO estoqueBO) {
         this.daoController = daoController;
         this.clock = clock;
+        this.despesaService = despesaService;
+        this.produtoService = produtoService;
+        this.estoqueBO = estoqueBO;
     }
 
     @Transactional
@@ -70,8 +81,14 @@ public class ServicoService {
             pessoa = buscarPessoaById(requestDTO.pessoaId());
         }
 
+        Produto produto = null;
+        if (requestDTO.produtoId() != null) {
+            produto = produtoService.buscarEntity(requestDTO.produtoId());
+        }
+
         Servico servico = new Servico();
         servico.setPessoa(pessoa);
+        servico.setProduto(produto);
         servico.setDescricao(requestDTO.descricao());
         servico.setDataEntregaPrevista(requestDTO.dataEntregaPrevista());
         servico.setValor(requestDTO.valor());
@@ -97,6 +114,43 @@ public class ServicoService {
         servico.setStatusPagamento(StatusPagamento.PENDENTE);
 
         salvar(servico);
+
+        if (Boolean.TRUE.equals(requestDTO.geraDespesa()) && servico.getProduto() != null) {
+            gerarDespesaEBaixarEstoque(servico, servico.getProduto());
+        }
+    }
+
+    private void gerarDespesaEBaixarEstoque(Servico servico, Produto produto) {
+        try {
+            List<FichaTecnica> ficha = produtoService.listarFichaEntity(produto.getId());
+            if (ficha == null || ficha.isEmpty()) return;
+
+            BigDecimal custoTotal = BigDecimal.ZERO;
+            for (FichaTecnica item : ficha) {
+                if (item.getInsumo() != null && item.getQuantidade() != null) {
+                    BigDecimal qtd = item.getQuantidade();
+                    estoqueBO.saida(item.getInsumo(), qtd, servico, "Baixa automática da OS " + servico.getId());
+                    if (item.getInsumo().getCustoMedio() != null) {
+                        BigDecimal custoItem = item.getInsumo().getCustoMedio().multiply(qtd);
+                        custoTotal = custoTotal.add(custoItem);
+                    }
+                }
+            }
+
+            if (custoTotal.compareTo(BigDecimal.ZERO) > 0) {
+                LocalDate dataAtual = LocalDate.now(clock);
+                Despesa despesa = new Despesa();
+                despesa.setDescricao("Custo de insumos - " + produto.getDescricao() + " (OS " + servico.getId() + ")");
+                despesa.setValor(custoTotal);
+                despesa.setMes(dataAtual.getMonthValue());
+                despesa.setAno(dataAtual.getYear());
+                despesa.setUsuario(servico.getUsuario());
+                despesa.setServico(servico);
+                daoController.insert(despesa);
+            }
+        } catch (Exception e) {
+            log.error("Erro ao gerar despesa de insumos para o produto " + produto.getId(), e);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -209,12 +263,21 @@ public class ServicoService {
     public void atualizarServicoCompleto(Long id, ServicoRequestDTO requestDTO) {
         Servico servicoExistente = buscarServicoById(id);
 
+        estoqueBO.estornarSaidasPorServico(servicoExistente);
+        despesaService.deletarPorServico(servicoExistente.getId());
+
         Pessoa pessoa = null;
         if (requestDTO.pessoaId() != null) {
             pessoa = buscarPessoaById(requestDTO.pessoaId());
         }
 
+        Produto produto = null;
+        if (requestDTO.produtoId() != null) {
+            produto = produtoService.buscarEntity(requestDTO.produtoId());
+        }
+
         servicoExistente.setPessoa(pessoa);
+        servicoExistente.setProduto(produto);
         servicoExistente.setDescricao(requestDTO.descricao());
         servicoExistente.setDataEntregaPrevista(requestDTO.dataEntregaPrevista());
         servicoExistente.setValor(requestDTO.valor());
@@ -236,12 +299,18 @@ public class ServicoService {
         }
 
         salvar(servicoExistente);
+
+        if (Boolean.TRUE.equals(requestDTO.geraDespesa()) && produto != null) {
+            gerarDespesaEBaixarEstoque(servicoExistente, produto);
+        }
     }
 
     @Transactional
     @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
     public void deletarServico(Long id) {
         Servico servicoExistente = buscarServicoById(id);
+        estoqueBO.estornarSaidasPorServico(servicoExistente);
+        despesaService.deletarPorServico(servicoExistente.getId());
         daoController.delete(servicoExistente);
     }
 

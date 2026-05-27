@@ -106,6 +106,23 @@ public class DespesaService {
         }
     }
 
+    @Transactional
+    public void deletarPorServico(Long servicoId) {
+        if (servicoId == null) return;
+        try {
+            List<Despesa> despesas = dao.select()
+                    .from(Despesa.class)
+                    .join("servico")
+                    .where("servico.id", Condicao.EQUAL, servicoId)
+                    .list();
+            for (Despesa d : despesas) {
+                dao.delete(d);
+            }
+        } catch (NotFoundException e) {
+            // ignorar
+        }
+    }
+
     @Transactional(readOnly = true)
     public DespesaTotalDTO calcularTotalMes(String mesAno) {
         int mes;

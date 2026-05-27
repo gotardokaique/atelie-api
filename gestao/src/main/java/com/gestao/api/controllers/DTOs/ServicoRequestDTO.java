@@ -8,5 +8,7 @@ public record ServicoRequestDTO(
         String descricao,
         LocalDate dataEntregaPrevista,
         BigDecimal valor,
-        Boolean urgente
+        Boolean urgente,
+        Long produtoId,
+        Boolean geraDespesa
 ) {}
