@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.WhereDB;
+import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.bo.EstoqueBO;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.AjusteEstoqueDTO;
@@ -46,13 +48,20 @@ public class InsumoService {
     }
 
     @Transactional(readOnly = true)
-    public List<InsumoDTO> listar() {
+    public List<InsumoDTO> listar(FilterQuery filter) {
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+
+        if (filter != null) {
+            filter.applyTo(where);
+        }
+
         List<Insumo> insumos;
         try {
             insumos = dao.select()
                     .from(Insumo.class)
                     .join("usuario")
-                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where(where)
                     .orderBy("descricao", true)
                     .list();
         } catch (NotFoundException e) {

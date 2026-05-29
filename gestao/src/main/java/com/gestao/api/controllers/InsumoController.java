@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.controllers.DTOs.AjusteEstoqueDTO;
 import com.gestao.api.controllers.DTOs.EntradaEstoqueDTO;
 import com.gestao.api.controllers.DTOs.InsumoDTO;
@@ -36,8 +37,8 @@ public class InsumoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<InsumoDTO>> listar() {
-        return ResponseEntity.ok(insumoService.listar());
+    public ResponseEntity<List<InsumoDTO>> listar(FilterQuery filter) {
+        return ResponseEntity.ok(insumoService.listar(filter));
     }
 
     @GetMapping("/alertas")
