@@ -321,7 +321,7 @@ public class RegisterUserBO {
             var jwt = tokenService.generateToken(user);
             sessionService.storeToken(user.getId(), jwt);
 
-            HttpUtils.addSecureCookie(response, "auth_token", jwt, jwtExpirationMs / 1000);
+            HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000));
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
             return ResponseEntity.ok(new LoginResponseDTO(jwt));
@@ -552,7 +552,7 @@ public class RegisterUserBO {
         // 5. Gerar JWT — mesmo fluxo do login normal
         var jwt = tokenService.generateToken(usuario);
         sessionService.storeToken(usuario.getId(), jwt);
-        HttpUtils.addSecureCookie(response, "auth_token", jwt, jwtExpirationMs / 1000);
+        HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000));
 
         return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
