@@ -71,6 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = tokenService.validateToken(jwt);
             if (!StringUtils.hasText(username)) {
                 logger.debug("JWT inválido, expirado ou sem subject");
+                clearAuthCookie(response);
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -87,17 +88,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String tokenSalvo = sessionService.getToken(usuario.getId());
             if (tokenSalvo == null) {
                 logger.debug("Sessão expirada para usuário id={}. JWT rejeitado.", usuario.getId());
+                clearAuthCookie(response);
                 filterChain.doFilter(request, response);
                 return;
             }
 
             if (!jwt.equals(tokenSalvo)) {
                 logger.warn("JWT não coincide com token em sessão para usuário id={}", usuario.getId());
+                clearAuthCookie(response);
                 filterChain.doFilter(request, response);
                 return;
             }
-
-            // 7) SLIDING EXPIRATION: renova a sessão para mais 1h
+            // 7) SLIDING EXPIRATION: renova a sessão para mais 1h	
             sessionService.refreshSession(usuario.getId());
 
             // 8) Autentica no contexto de segurança
@@ -144,5 +146,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             || path.equals("/api/v1/auth/refresh")
             || path.equals("/api/v1/auth/forgot-pasword")
             || path.equals("/api/v1/auth/google");
+    }
+    
+    private void clearAuthCookie(HttpServletResponse response) {
+        com.gen.core.utils.HttpUtils.removeCookie(response, "auth_token");
     }
 }
