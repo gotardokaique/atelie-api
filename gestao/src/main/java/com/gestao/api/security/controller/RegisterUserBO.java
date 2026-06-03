@@ -66,9 +66,12 @@ public class RegisterUserBO {
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
-    
+
     @Value("${api.security.jwt.expiration-ms}")
     private long jwtExpirationMs;
+
+    @Value("${app.security.cookie.domain:}")
+    private String cookieDomain;
 
     // ===================== LOGIN SECURITY CONFIG =====================
 
@@ -321,7 +324,7 @@ public class RegisterUserBO {
             var jwt = tokenService.generateToken(user);
             sessionService.storeToken(user.getId(), jwt);
 
-            HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000));
+            HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
             return ResponseEntity.ok(new LoginResponseDTO(jwt));
