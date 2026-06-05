@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -15,6 +16,7 @@ import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.security.TokenService;
 import com.gen.core.security.SessionService;
+import com.gen.core.utils.HttpUtils;
 import com.gestao.api.entities.Usuario;
 
 import jakarta.servlet.FilterChain;
@@ -31,12 +33,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final DAOController daoController;
     private final SessionService sessionService;
 
+    private final long jwtExpirationMs;
+    private final String cookieDomain;
+    /** Reemite o token quando a vida restante cai abaixo deste limiar (= janela de idle). */
+    private final long rotationThresholdMs;
+
     public JwtAuthenticationFilter(TokenService tokenService,
                                    DAOController daoController,
-                                   SessionService sessionService) {
+                                   SessionService sessionService,
+                                   @Value("${api.security.jwt.expiration-ms}") long jwtExpirationMs,
+                                   @Value("${app.security.cookie.domain:}") String cookieDomain,
+                                   @Value("${security.session.idle-expiration-seconds}") long idleExpirationSeconds,
+                                   @Value("${security.session.skip-sunday:true}") boolean skipSunday) {
         this.tokenService = tokenService;
         this.daoController = daoController;
         this.sessionService = sessionService;
+        this.jwtExpirationMs = jwtExpirationMs;
+        this.cookieDomain = cookieDomain;
+        this.rotationThresholdMs = idleExpirationSeconds * 1000L
+                + (skipSunday ? 86400L * 1000L : 0L);
     }
 
     @Override
@@ -99,8 +114,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
                 return;
             }
-            // 7) SLIDING EXPIRATION: renova a sessão para mais 1h	
+            // 7) SLIDING EXPIRATION: renova a sessão no Redis para mais 12h (janela de idle)
             sessionService.refreshSession(usuario.getId());
+
+            // 7.1) ROTAÇÃO DE TOKEN: se o JWT entrou nas últimas 12h de vida, reemite
+            // um token novo (3 dias), atualiza a sessão e reseta o cookie. Como o
+            // usuário ativo sempre faz request dentro da janela de idle, ele cai aqui
+            // antes do JWT vencer e nunca esbarra no teto de expiração.
+            long remainingMs = tokenService.getRemainingMs(jwt);
+            if (remainingMs > 0 && remainingMs < rotationThresholdMs) {
+                String novoJwt = tokenService.generateToken(usuario);
+                sessionService.storeToken(usuario.getId(), novoJwt);
+                HttpUtils.addSecureCookie(response, "auth_token", novoJwt,
+                        (int) (jwtExpirationMs / 1000), cookieDomain);
+                logger.debug("Token rotacionado para usuário id={}", usuario.getId());
+            }
 
             // 8) Autentica no contexto de segurança
             UsernamePasswordAuthenticationToken authentication =
@@ -144,7 +172,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.equals("/api/v1/auth/login")
             || path.equals("/api/v1/auth/register")
             || path.equals("/api/v1/auth/refresh")
-            || path.equals("/api/v1/auth/forgot-pasword")
+            || path.equals("/api/v1/auth/forgot-password")
             || path.equals("/api/v1/auth/google");
     }
     
