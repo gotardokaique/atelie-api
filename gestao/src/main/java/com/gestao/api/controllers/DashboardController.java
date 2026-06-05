@@ -5,9 +5,11 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
+import com.gestao.api.controllers.DTOs.FaturamentoServicoPeriodoDTO;
 import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
 import com.gestao.api.services.PessoaService;
 import com.gestao.api.services.ServicoService;
@@ -37,6 +39,12 @@ public class DashboardController {
     @GetMapping("/servicos-por-mes-ultimos-6")
     public List<ServicosPorMesDTO> servicosPorMesUltimos6() {
         return servicoService.getServicosCriadosUltimos6MesesAgrupado();
+    }
+
+    @GetMapping("/faturamento-servicos")
+    public List<FaturamentoServicoPeriodoDTO> faturamentoServicos(
+            @RequestParam(defaultValue = "6m") String range) {
+        return servicoService.getFaturamentoServicosPorPeriodo(range);
     }
     
     @GetMapping("/clientes-cadastrados-mes-atual")

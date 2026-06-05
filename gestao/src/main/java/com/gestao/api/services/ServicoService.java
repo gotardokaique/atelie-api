@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -30,6 +31,7 @@ import com.gen.core.db.WhereDB;
 import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
+import com.gestao.api.controllers.DTOs.FaturamentoServicoPeriodoDTO;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
 import com.gestao.api.controllers.DTOs.NomeValorDTO;
 import com.gestao.api.controllers.DTOs.PessoaRankingDTO;
@@ -874,6 +876,111 @@ public class ServicoService {
         }
 
         return out;
+    }
+
+    /**
+     * Faturamento x quantidade de servicos finalizados E pagos, agrupados por periodo.
+     * range: "1m" (5 buckets de 7 dias), "3m" (7 buckets de 14 dias),
+     *        "6m" (6 buckets mensais, padrao). Bucket pela dataFinalizacao.
+     */
+    @Transactional(readOnly = true)
+    public List<FaturamentoServicoPeriodoDTO> getFaturamentoServicosPorPeriodo(String range) {
+        String r = (range == null) ? "6m" : range.toLowerCase();
+
+        switch (r) {
+            case "1m":
+                return faturamentoPorDias(5, 7);
+            case "3m":
+                return faturamentoPorDias(7, 14);
+            case "6m":
+            default:
+                return faturamentoMensal(6);
+        }
+    }
+
+    private List<FaturamentoServicoPeriodoDTO> faturamentoMensal(int meses) {
+        LocalDate hoje = LocalDate.now(clock);
+        YearMonth mesAtual = YearMonth.from(hoje);
+        YearMonth inicioYm = mesAtual.minusMonths(meses - 1L);
+
+        LocalDate inicio = inicioYm.atDay(1);
+        LocalDate fim = mesAtual.atEndOfMonth();
+
+        Map<YearMonth, BigDecimal> valorPorMes = new LinkedHashMap<>();
+        Map<YearMonth, Long> qtdPorMes = new LinkedHashMap<>();
+        for (int i = 0; i < meses; i++) {
+            YearMonth ym = inicioYm.plusMonths(i);
+            valorPorMes.put(ym, BigDecimal.ZERO);
+            qtdPorMes.put(ym, 0L);
+        }
+
+        for (Servico s : buscarFinalizadosPagosPorFinalizacaoEntre(inicio, fim)) {
+            if (s.getDataFinalizacao() == null)
+                continue;
+            YearMonth ym = YearMonth.from(s.getDataFinalizacao());
+            if (!valorPorMes.containsKey(ym))
+                continue;
+            BigDecimal v = s.getValor() == null ? BigDecimal.ZERO : s.getValor();
+            valorPorMes.put(ym, valorPorMes.get(ym).add(v));
+            qtdPorMes.put(ym, qtdPorMes.get(ym) + 1L);
+        }
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/yyyy");
+        List<FaturamentoServicoPeriodoDTO> out = new ArrayList<>();
+        for (YearMonth ym : valorPorMes.keySet()) {
+            out.add(new FaturamentoServicoPeriodoDTO(ym.format(fmt), valorPorMes.get(ym), qtdPorMes.get(ym)));
+        }
+        return out;
+    }
+
+    private List<FaturamentoServicoPeriodoDTO> faturamentoPorDias(int numBuckets, int tamBucketDias) {
+        LocalDate hoje = LocalDate.now(clock);
+        int totalDias = numBuckets * tamBucketDias;
+        LocalDate inicio = hoje.minusDays(totalDias - 1L); // inclui hoje
+        LocalDate fim = hoje;
+
+        List<LocalDate> bucketInicios = new ArrayList<>();
+        BigDecimal[] valores = new BigDecimal[numBuckets];
+        long[] qtds = new long[numBuckets];
+        for (int i = 0; i < numBuckets; i++) {
+            bucketInicios.add(inicio.plusDays((long) i * tamBucketDias));
+            valores[i] = BigDecimal.ZERO;
+            qtds[i] = 0L;
+        }
+
+        for (Servico s : buscarFinalizadosPagosPorFinalizacaoEntre(inicio, fim)) {
+            LocalDate d = s.getDataFinalizacao();
+            if (d == null)
+                continue;
+            long diff = ChronoUnit.DAYS.between(inicio, d);
+            if (diff < 0)
+                continue;
+            int idx = (int) (diff / tamBucketDias);
+            if (idx < 0 || idx >= numBuckets)
+                continue;
+            BigDecimal v = s.getValor() == null ? BigDecimal.ZERO : s.getValor();
+            valores[idx] = valores[idx].add(v);
+            qtds[idx] = qtds[idx] + 1L;
+        }
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+        List<FaturamentoServicoPeriodoDTO> out = new ArrayList<>();
+        for (int i = 0; i < numBuckets; i++) {
+            out.add(new FaturamentoServicoPeriodoDTO(bucketInicios.get(i).format(fmt), valores[i], qtds[i]));
+        }
+        return out;
+    }
+
+    private List<Servico> buscarFinalizadosPagosPorFinalizacaoEntre(LocalDate inicio, LocalDate fim) {
+        return daoController
+                .select()
+                .from(Servico.class)
+                .join("usuario")
+                .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
+                .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
+                .where("dataFinalizacao", Condicao.BETWEEN, inicio, fim)
+                .list();
     }
 
 }
