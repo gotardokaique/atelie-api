@@ -881,7 +881,7 @@ public class ServicoService {
     /**
      * Faturamento x quantidade de servicos finalizados E pagos, agrupados por periodo.
      * range: "1m" (5 buckets de 7 dias), "3m" (7 buckets de 14 dias),
-     *        "6m" (6 buckets mensais, padrao). Bucket pela dataFinalizacao.
+     *        "6m" (6 buckets mensais, padrao). Bucket pela dataCadastro.
      */
     @Transactional(readOnly = true)
     public List<FaturamentoServicoPeriodoDTO> getFaturamentoServicosPorPeriodo(String range) {
@@ -914,10 +914,10 @@ public class ServicoService {
             qtdPorMes.put(ym, 0L);
         }
 
-        for (Servico s : buscarFinalizadosPagosPorFinalizacaoEntre(inicio, fim)) {
-            if (s.getDataFinalizacao() == null)
+        for (Servico s : buscarFinalizadosPagosPorCadastroEntre(inicio, fim)) {
+            if (s.getDataCadastro() == null)
                 continue;
-            YearMonth ym = YearMonth.from(s.getDataFinalizacao());
+            YearMonth ym = YearMonth.from(s.getDataCadastro());
             if (!valorPorMes.containsKey(ym))
                 continue;
             BigDecimal v = s.getValor() == null ? BigDecimal.ZERO : s.getValor();
@@ -948,10 +948,10 @@ public class ServicoService {
             qtds[i] = 0L;
         }
 
-        for (Servico s : buscarFinalizadosPagosPorFinalizacaoEntre(inicio, fim)) {
-            LocalDate d = s.getDataFinalizacao();
-            if (d == null)
+        for (Servico s : buscarFinalizadosPagosPorCadastroEntre(inicio, fim)) {
+            if (s.getDataCadastro() == null)
                 continue;
+            LocalDate d = s.getDataCadastro().toLocalDate();
             long diff = ChronoUnit.DAYS.between(inicio, d);
             if (diff < 0)
                 continue;
@@ -971,7 +971,7 @@ public class ServicoService {
         return out;
     }
 
-    private List<Servico> buscarFinalizadosPagosPorFinalizacaoEntre(LocalDate inicio, LocalDate fim) {
+    private List<Servico> buscarFinalizadosPagosPorCadastroEntre(LocalDate inicio, LocalDate fim) {
         return daoController
                 .select()
                 .from(Servico.class)
@@ -979,7 +979,7 @@ public class ServicoService {
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO)
                 .where("statusPagamento", Condicao.EQUAL, StatusPagamento.PAGO)
-                .where("dataFinalizacao", Condicao.BETWEEN, inicio, fim)
+                .where("dataCadastro", Condicao.BETWEEN, inicio.atStartOfDay(), fim.atTime(LocalTime.MAX))
                 .list();
     }
 
