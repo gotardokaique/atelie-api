@@ -30,7 +30,11 @@ import com.gen.core.api.PublicEndpointRegistry;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
+import com.gen.core.filter.BodySanitizingFilter;
+import com.gen.core.filter.RequestLoggingFilter;
 import com.gestao.api.security.JwtAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +43,8 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final DAOController daoController;
     private final PublicEndpointRegistry publicEndpointRegistry;
+    private final RequestLoggingFilter requestLoggingFilter;
+    private final BodySanitizingFilter bodySanitizingFilter;
 
     @Value("${app.security.cors.allowed-origins:https://genfinance.com.br}")
     private List<String> allowedOrigins;
@@ -48,10 +54,14 @@ public class SecurityConfig {
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           DAOController daoController,
-                          PublicEndpointRegistry publicEndpointRegistry) {
+                          PublicEndpointRegistry publicEndpointRegistry,
+                          RequestLoggingFilter requestLoggingFilter,
+                          BodySanitizingFilter bodySanitizingFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.daoController = daoController;
         this.publicEndpointRegistry = publicEndpointRegistry;
+        this.requestLoggingFilter = requestLoggingFilter;
+        this.bodySanitizingFilter = bodySanitizingFilter;
     }
 
     @Bean
@@ -90,6 +100,8 @@ public class SecurityConfig {
 
             .authenticationProvider(authenticationProvider)
 
+            .addFilterBefore(requestLoggingFilter, SecurityContextHolderFilter.class)
+            .addFilterBefore(bodySanitizingFilter, RequestLoggingFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
             .exceptionHandling(ex -> ex
@@ -196,6 +208,19 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+    @Bean
+    public FilterRegistrationBean<RequestLoggingFilter> requestLoggingFilterRegistration(RequestLoggingFilter filter) {
+        FilterRegistrationBean<RequestLoggingFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<BodySanitizingFilter> bodySanitizingFilterRegistration(BodySanitizingFilter filter) {
+        FilterRegistrationBean<BodySanitizingFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
     
 //    @PostConstruct

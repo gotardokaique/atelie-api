@@ -25,8 +25,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @EndpointMapping("/api/v1/auth")
 public class AuthenticationController extends AbstractController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationController.class);
 
     @Autowired
     private SessionService sessionService;
@@ -59,8 +64,8 @@ public class AuthenticationController extends AbstractController {
         }
 
         if (registerBO.isEmailJaRegistrado(email)) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(java.util.Map.of("message", "Tente outro e-mail."));
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body(java.util.Map.of("message", "Cadastro recebido. Se os dados estiverem corretos, você receberá uma confirmação."));
         }
 
         if (!registerBO.validarSenhaForte(senha)) {
@@ -71,11 +76,12 @@ public class AuthenticationController extends AbstractController {
 
         boolean cadastrado = registerBO.cadastrarUsuario(nome, email, passwordEncoder.encode(senha), null);
         if (!cadastrado) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(java.util.Map.of("message", "Hmm... algo deu errado, verifique sua conexão.."));
         }
 
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(java.util.Map.of("message", "Cadastro recebido. Se os dados estiverem corretos, você receberá uma confirmação."));
     }
 
     @MethodMapping(path = "/forgot-password", type = RequestMethod.POST, isPublic = true)
@@ -93,7 +99,8 @@ public class AuthenticationController extends AbstractController {
             registerBO.resetarSenha(data.token(), data.newPassword());
             return ResponseEntity.ok("Senha redefinida com sucesso.");
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            log.warn("[SECURITY] Erro ao resetar senha: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Link inválido ou expirado.");
         }
     }
 

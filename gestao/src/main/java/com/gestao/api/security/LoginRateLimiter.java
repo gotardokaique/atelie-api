@@ -14,8 +14,6 @@ public class LoginRateLimiter {
     @Value("${security.login.max-attempts-per-ip:10}")	
     private int maxAttemptsPerIp;
 
-    @Value("${security.login.max-attempts-per-email:10}")
-    private int maxAttemptsPerEmail;
 
     @Value("${security.login.max-attempts-per-ip-email:5}")
     private int maxAttemptsPerIpEmail;
@@ -41,27 +39,22 @@ public class LoginRateLimiter {
 
     public boolean isBlocked(String ip, String email) {
         String ipKey = keyIp(ip);
-        String emailKey = keyEmail(email);
         String ipEmailKey = keyIpEmail(ip, email);
 
         int ipCount = getCount(ipKey);
-        int emailCount = getCount(emailKey);
         int ipEmailCount = getCount(ipEmailKey);
 
         return ipCount >= maxAttemptsPerIp
-            || emailCount >= maxAttemptsPerEmail
             || ipEmailCount >= maxAttemptsPerIpEmail;
     }
 
     public void registerFailedAttempt(String ip, String email) {
         incrementWithTtl(keyIp(ip));
-        incrementWithTtl(keyEmail(email));
         incrementWithTtl(keyIpEmail(ip, email));
     }
 
     public void resetAttempts(String ip, String email) {
         redisTemplate.delete(keyIp(ip));
-        redisTemplate.delete(keyEmail(email));
         redisTemplate.delete(keyIpEmail(ip, email));
     }
 
