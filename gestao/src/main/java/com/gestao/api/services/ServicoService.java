@@ -793,8 +793,37 @@ public class ServicoService {
 
     @Transactional(readOnly = true)
     public List<ServicoResponseDTO> getServicosProximosPrazo() {
+        // Lê a preferência do usuário: respeita o switch e a antecedência configurada.
+        Long usuarioId = UserContext.getIdUsuario();
+        List<com.gestao.api.entities.Configuracao> cfgs;
+        try {
+            cfgs = daoController
+                    .select()
+                    .from(com.gestao.api.entities.Configuracao.class)
+                    .join("usuario")
+                    .where("usuario.id", Condicao.EQUAL, usuarioId)
+                    .limit(1)
+                    .list();
+        } catch (Exception e) {
+            cfgs = List.of();
+        }
+
+        boolean notificar = true;
+        int diasAntecedencia = 3;
+        if (!cfgs.isEmpty()) {
+            com.gestao.api.entities.Configuracao cfg = cfgs.get(0);
+            if (Boolean.FALSE.equals(cfg.getNotificarPrazo())) notificar = false;
+            if (cfg.getDiasAntecedenciaPrazo() != null && cfg.getDiasAntecedenciaPrazo() > 0) {
+                diasAntecedencia = cfg.getDiasAntecedenciaPrazo();
+            }
+        }
+
+        if (!notificar) {
+            return List.of();
+        }
+
         LocalDate hoje = LocalDate.now(clock);
-        LocalDate limite = hoje.plusDays(2);
+        LocalDate limite = hoje.plusDays(diasAntecedencia);
 
         List<Servico> todos;
         try {
@@ -803,7 +832,7 @@ public class ServicoService {
                     .from(Servico.class)
                     .leftJoin("pessoa")
                     .join("usuario")
-                    .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
+                    .where("usuario.id", Condicao.EQUAL, usuarioId)
                     .where("statusServico", Condicao.IN,
                             StatusServico.PENDENTE,
                             StatusServico.EM_ANDAMENTO,

@@ -5,7 +5,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
+import com.gestao.api.controllers.DTOs.UserMeDTO;
 import com.gen.core.db.DAOController;
+import com.gestao.api.context.UserContext;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.RoleEnum;
 import com.gestao.api.select.Select;
@@ -55,6 +57,23 @@ public class UsuarioService {
 //        user.setRole(RoleEnum.ROLE_USER);
 
         salvar(user);
+    }
+
+    // ===================== ATUALIZAR PRÓPRIO PERFIL =====================
+
+    @Transactional
+    public UserMeDTO atualizarPerfil(String nome, String foto) {
+        Usuario user = daoController.select().from(Usuario.class).id(UserContext.getIdUsuario());
+
+        if (nome != null && !nome.trim().isEmpty()) {
+            user.setNome(nome.trim());
+        }
+        user.setFoto(foto); // foto null = remover
+
+        Usuario salvo = daoController.update(user);
+        String provider = salvo.getProvider() != null ? salvo.getProvider().name() : "LOCAL";
+        boolean googleVinculado = salvo.getGoogleId() != null && !salvo.getGoogleId().isBlank();
+        return new UserMeDTO(salvo.getNome(), salvo.getEmail(), salvo.getFoto(), provider, googleVinculado);
     }
 
     // ===================== HELPERS =====================

@@ -17,9 +17,11 @@ import com.gestao.api.controllers.DTOs.GoogleAuthRequest;
 import com.gestao.api.controllers.DTOs.LoginRequestDTO;
 import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
 import com.gestao.api.controllers.DTOs.ResetPasswordDTO;
+import com.gestao.api.controllers.DTOs.UpdateMeDTO;
 import com.gestao.api.controllers.DTOs.UserMeDTO;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.redefinir.dto.PasswordResetInput;
+import com.gestao.api.services.UsuarioService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -39,6 +41,8 @@ public class AuthenticationController extends AbstractController {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private RegisterUserBO registerBO;
+    @Autowired
+    private UsuarioService usuarioService;
 
     @MethodMapping(path = "/login", type = RequestMethod.POST, isPublic = true)
     public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto,
@@ -107,7 +111,14 @@ public class AuthenticationController extends AbstractController {
     @MethodMapping(path = "/me", type = RequestMethod.GET)
     public ResponseEntity<?> getMe() {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
-        return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail()));
+        String provider = user.getProvider() != null ? user.getProvider().name() : "LOCAL";
+        boolean googleVinculado = user.getGoogleId() != null && !user.getGoogleId().isBlank();
+        return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail(), user.getFoto(), provider, googleVinculado));
+    }
+
+    @MethodMapping(path = "/me", type = RequestMethod.PUT)
+    public ResponseEntity<?> updateMe(@RequestBody UpdateMeDTO dto) {
+        return ResponseEntity.ok(usuarioService.atualizarPerfil(dto.nome(), dto.foto()));
     }
 
     @MethodMapping(path = "/logout", type = RequestMethod.POST)
@@ -116,5 +127,23 @@ public class AuthenticationController extends AbstractController {
         sessionService.removeToken(user.getId());
         HttpUtils.removeCookie(response, "auth_token");
         return ResponseEntity.ok("Logout executado.");
+    }
+
+    /**
+     * Invalida a sessão do usuário no Redis (chave única por user) e limpa o
+     * cookie atual. Efetivamente desloga este e quaisquer outros dispositivos.
+     */
+    @MethodMapping(path = "/logout-all", type = RequestMethod.POST)
+    public ResponseEntity<?> logoutAll(HttpServletResponse response) {
+        Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
+        sessionService.removeToken(user.getId());
+        HttpUtils.removeCookie(response, "auth_token");
+        return ResponseEntity.ok(java.util.Map.of("message", "Sessões encerradas em todos os dispositivos."));
+    }
+
+    @MethodMapping(path = "/me", type = RequestMethod.DELETE)
+    public ResponseEntity<?> excluirConta() {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(java.util.Map.of("message", "Exclusão de conta em breve."));
     }
 }

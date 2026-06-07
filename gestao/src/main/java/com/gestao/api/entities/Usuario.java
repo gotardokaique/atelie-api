@@ -41,6 +41,9 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     @Column(name = "google_id", unique = true)
     private String googleId;
 
+    @Column(name = "usu_foto", columnDefinition = "TEXT")
+    private String foto;
+
 //    @Enumerated(EnumType.STRING)
 //    @Column(name = "usu_role", nullable = false)
 //    private RoleEnum role;
@@ -74,6 +77,9 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
 
     public String getGoogleId() { return googleId; }
     public void setGoogleId(String googleId) { this.googleId = googleId; }
+
+    public String getFoto() { return foto; }
+    public void setFoto(String foto) { this.foto = foto; }
 
 //    public RoleEnum getRole() { return role; }
 //    public void setRole(RoleEnum role) { this.role = role; }
