@@ -58,7 +58,7 @@ public class AuthenticationController extends AbstractController {
 
     @MethodMapping(path = "/register", type = RequestMethod.POST, isPublic = true)
     public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data) {
-        String email = data.email().trim().toLowerCase();
+        String email = data.email().trim().toLowerCase(); 
         String senha = data.senha();
         String nome = data.nome();
 
