@@ -66,7 +66,7 @@ public final class TemplateEmailStr {
         "<p style='margin:0 0 8px 0;font-size:10px;letter-spacing:5px;color:#b8956a;" +
         "text-transform:uppercase;font-weight:600;'>Gestão Ateliê</p>" +
         "<h1 style='margin:0;color:#ffffff;font-size:28px;font-weight:300;" +
-        "letter-spacing:4px;text-transform:uppercase;'>Gestão Ateliê</h1>" +
+        "letter-spacing:4px;text-transform:uppercase;'>Redefinição de Senha</h1>" +
         "<div style='width:36px;height:2px;background-color:#b8956a;margin:14px auto 0;'></div>" +
         "</td></tr>" +
 
@@ -76,9 +76,6 @@ public final class TemplateEmailStr {
 
         // BODY
         "<tr><td style='padding:52px 48px 44px;text-align:center;'>" +
-
-        "<h2 style='margin:0 0 22px;color:#111111;font-size:22px;" +
-        "font-weight:600;letter-spacing:-0.3px;'>Redefinição de Senha</h2>" +
 
         "<p style='margin:0 0 6px;color:#333333;font-size:15px;line-height:1.7;'>" +
         "Olá#saudacao#,</p>" +
