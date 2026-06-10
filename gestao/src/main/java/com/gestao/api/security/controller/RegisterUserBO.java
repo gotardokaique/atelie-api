@@ -73,6 +73,9 @@ public class RegisterUserBO {
     @Value("${app.security.cookie.domain:}")
     private String cookieDomain;
 
+    @Value("${app.admin.email:kaiquecgotardo@gmail.com}")
+    private String adminEmail;
+
     // ===================== LOGIN SECURITY CONFIG =====================
 
     private static final int MAX_TENTATIVAS_LOGIN = 5;
@@ -251,6 +254,10 @@ public class RegisterUserBO {
             isUserCadastrado = true;
         } catch (Exception e) {
             isUserCadastrado = false;
+        }
+
+        if (isUserCadastrado) {
+            notificarAdminNovoUsuario(nome, email, ProviderUsuario.LOCAL);
         }
 
         return isUserCadastrado;
@@ -550,6 +557,9 @@ public class RegisterUserBO {
                     .from(Usuario.class)
                     .where("googleId", Condicao.EQUAL, request.getGoogleId())
                     .one();
+
+            // Notifica o admin sobre o novo cadastro via Google.
+            notificarAdminNovoUsuario(request.getNome(), email, ProviderUsuario.GOOGLE);
         }
 
         // 5. Gerar JWT — mesmo fluxo do login normal
@@ -558,6 +568,111 @@ public class RegisterUserBO {
         HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000));
 
         return ResponseEntity.ok(new LoginResponseDTO(jwt));
+    }
+
+    // ===================== NOTIFICAÇÃO ADMIN =====================
+
+    /**
+     * Envia um e-mail ao admin avisando que um novo usuário se cadastrou
+     * (manual ou via Google). Não propaga exceções: falhar o envio NÃO deve
+     * derrubar o cadastro/login do usuário.
+     */
+    private void notificarAdminNovoUsuario(String nome, String email, ProviderUsuario provider) {
+        try {
+            if (adminEmail == null || adminEmail.isBlank()) {
+                logger.warn("Notificação de novo usuário ignorada: admin email não configurado.");
+                return;
+            }
+
+            String providerLabel = provider == ProviderUsuario.GOOGLE ? "Google" : "Email/Senha";
+            String titulo = "Novo cadastro no Gestão Ateliê — " + (nome == null ? email : nome);
+            String corpo = buildNovoUsuarioEmail(nome, email, providerLabel);
+
+            emailBO.criar()
+                    .remetente()
+                    .destinatario(adminEmail)
+                    .titulo(titulo)
+                    .mensagem(corpo)
+                    .enviar();
+
+            logger.info("Notificação de novo usuário enviada ao admin ({}) — provider={}", adminEmail, providerLabel);
+        } catch (Exception e) {
+            // Email é fire-and-forget aqui; logar e seguir.
+            logger.warn("Falha ao notificar admin sobre novo usuário {} ({}): {}", email, provider, e.getMessage());
+        }
+    }
+
+    private static String buildNovoUsuarioEmail(String nome, String email, String providerLabel) {
+        String nomeSeguro = (nome == null || nome.isBlank()) ? "(sem nome)" : nome;
+        String quando = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        String ano = String.valueOf(java.time.Year.now().getValue());
+        return
+            "<!DOCTYPE html>" +
+            "<html lang='pt-BR'><head><meta charset='UTF-8'>" +
+            "<meta name='viewport' content='width=device-width,initial-scale=1.0'>" +
+            "<title>Novo cadastro</title></head>" +
+            "<body style='margin:0;padding:0;background-color:#f0ece6;font-family:Helvetica Neue,Arial,sans-serif;'>" +
+
+            "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'" +
+            " style='background-color:#f0ece6;padding:48px 16px;'>" +
+            "<tr><td align='center'>" +
+
+            "<table role='presentation' cellpadding='0' cellspacing='0' border='0'" +
+            " style='width:100%;max-width:560px;background-color:#ffffff;" +
+            "border-radius:8px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.10);'>" +
+
+            // HEADER
+            "<tr><td style='background-color:#111111;padding:38px 48px 34px;text-align:center;'>" +
+            "<p style='margin:0 0 8px 0;font-size:10px;letter-spacing:5px;color:#b8956a;" +
+            "text-transform:uppercase;font-weight:600;'>Gest&atilde;o de Atel&icirc;</p>" +
+            "<h1 style='margin:0;color:#ffffff;font-size:24px;font-weight:300;" +
+            "letter-spacing:3px;text-transform:uppercase;'>Novo cadastro</h1>" +
+            "<div style='width:36px;height:2px;background-color:#b8956a;margin:14px auto 0;'></div>" +
+            "</td></tr>" +
+
+            "<tr><td style='height:3px;background:linear-gradient(90deg,#6b4e10,#c9a96e,#e8d5a3,#c9a96e,#6b4e10);" +
+            "font-size:0;line-height:3px;'>&nbsp;</td></tr>" +
+
+            // BODY
+            "<tr><td style='padding:42px 48px 36px;'>" +
+            "<p style='margin:0 0 24px;color:#333333;font-size:15px;line-height:1.7;'>" +
+            "Um novo usu&aacute;rio acaba de se cadastrar no sistema.</p>" +
+
+            "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'" +
+            " style='border:1px solid #ede8e0;border-radius:6px;'>" +
+            "<tr><td style='padding:14px 18px;border-bottom:1px solid #ede8e0;'>" +
+            "<span style='display:block;font-size:11px;color:#999999;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Nome</span>" +
+            "<span style='color:#111111;font-size:15px;font-weight:600;'>" + nomeSeguro + "</span>" +
+            "</td></tr>" +
+            "<tr><td style='padding:14px 18px;border-bottom:1px solid #ede8e0;'>" +
+            "<span style='display:block;font-size:11px;color:#999999;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>E-mail</span>" +
+            "<span style='color:#111111;font-size:15px;font-weight:600;'>" + email + "</span>" +
+            "</td></tr>" +
+            "<tr><td style='padding:14px 18px;border-bottom:1px solid #ede8e0;'>" +
+            "<span style='display:block;font-size:11px;color:#999999;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Forma de cadastro</span>" +
+            "<span style='color:#111111;font-size:15px;font-weight:600;'>" + providerLabel + "</span>" +
+            "</td></tr>" +
+            "<tr><td style='padding:14px 18px;'>" +
+            "<span style='display:block;font-size:11px;color:#999999;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Quando</span>" +
+            "<span style='color:#111111;font-size:15px;font-weight:600;'>" + quando + "</span>" +
+            "</td></tr>" +
+            "</table>" +
+
+            "</td></tr>" +
+
+            // FOOTER
+            "<tr><td style='background-color:#111111;padding:24px 48px;text-align:center;'>" +
+            "<p style='margin:0 0 6px;color:#b8956a;font-size:10px;letter-spacing:3px;" +
+            "text-transform:uppercase;font-weight:500;'>La Femme Atel&icirc;</p>" +
+            "<p style='margin:0;color:#555555;font-size:11px;line-height:1.7;'>" +
+            "&copy; " + ano + " Todos os direitos reservados &nbsp;&middot;&nbsp; Notifica&ccedil;&atilde;o autom&aacute;tica</p>" +
+            "</td></tr>" +
+
+            "</table>" +
+
+            "</td></tr></table>" +
+            "</body></html>";
     }
 
     // ===================== IP HELPER =====================
