@@ -118,7 +118,6 @@ public class AiService {
             CRIAR → "anota", "registra", "abre", "cria", "coloca", "adiciona", "novo"
             EDITAR → "atualiza", "muda", "corrige", "edita", "altera", "coloca o valor", "anota o valor"
             BUSCAR → "mostra", "lista", "quais", "tem algum", "me diz", "quero ver"
-            DELETAR → "cancela", "remove", "apaga", "deleta"
 
             ⚠️ Se o usuário disser "anota o valor X no serviço Y" → chame editar_ordem_servico com valor=X.
                Primeiro busque a OS pelo nome/descrição, depois edite. Nunca ignore essa intenção.
