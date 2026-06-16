@@ -1,5 +1,7 @@
 package com.gestao.api.config.lia.properties;
 
+import java.time.Duration;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -15,6 +17,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     reasoning-effort: low
  *     max-tool-iterations: 4
  *     temperature: 0.1
+ *     janela-contexto: 10
+ *     ttl-contexto: 24h
  */
 @ConfigurationProperties(prefix = "lia")
 public class LiaProperties {
@@ -25,6 +29,8 @@ public class LiaProperties {
     private String reasoningEffort = "low";
     private int maxToolIterations = 4;
     private double temperature = 0.1;
+    private int janelaContexto = 20;
+    private Duration ttlContexto = Duration.ofHours(24);
 
     public String getApiKey() {
         return apiKey;
@@ -72,5 +78,21 @@ public class LiaProperties {
 
     public void setTemperature(double temperature) {
         this.temperature = temperature;
+    }
+
+    public int getJanelaContexto() {
+        return janelaContexto;
+    }
+
+    public void setJanelaContexto(int janelaContexto) {
+        this.janelaContexto = janelaContexto;
+    }
+
+    public Duration getTtlContexto() {
+        return ttlContexto;
+    }
+
+    public void setTtlContexto(Duration ttlContexto) {
+        this.ttlContexto = ttlContexto;
     }
 }

@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.gestao.api.config.lia.prompet.LiaAjudaProvider;
 import com.gestao.api.config.lia.resolver.ReferenceResolver;
 import com.gestao.api.config.lia.tools.LiaFields;
 import com.gestao.api.config.lia.tools.LiaTool;
@@ -31,23 +32,31 @@ public class LiaActionService {
     private final PessoaService pessoaService;
     private final ServicoService servicoService;
     private final ReferenceResolver resolver;
+    private final LiaAjudaProvider ajudaProvider;
 
     public LiaActionService(PessoaService pessoaService,
                             ServicoService servicoService,
-                            ReferenceResolver resolver) {
+                            ReferenceResolver resolver,
+                            LiaAjudaProvider ajudaProvider) {
         this.pessoaService = pessoaService;
         this.servicoService = servicoService;
         this.resolver = resolver;
+        this.ajudaProvider = ajudaProvider;
     }
 
     public Object execute(LiaTool tool, Map<String, Object> input) {
         return switch (tool) {
             case BUSCAR_CLIENTES -> buscarClientes(input);
             case BUSCAR_ORDENS_SERVICO -> buscarOrdens(input);
+            case EXPLICAR_AJUDA -> explicarAjuda(input);
             case CRIAR_ORDEM_SERVICO -> criarOrdem(input);
             case EDITAR_ORDEM_SERVICO -> editarOrdem(input);
             case CADASTRAR_CLIENTE -> cadastrarCliente(input);
         };
+    }
+
+    private String explicarAjuda(Map<String, Object> input) {
+        return ajudaProvider.secao(asString(input.get(LiaFields.AREA)));
     }
 
     // ─── Leitura ──────────────────────────────────────────────────────────
@@ -62,16 +71,13 @@ public class LiaActionService {
     }
 
     private List<ServicoResponseDTO> buscarOrdens(Map<String, Object> input) {
-        String clienteFiltro = asString(input.get(LiaFields.CLIENTE_NOME));
         String status = asString(input.get(LiaFields.STATUS));
-        int limite = asInt(input.get(LiaFields.LIMITE), 10);
 
-        return servicoService.listarServicosEmAberto(null).stream()
-                .filter(s -> clienteFiltro == null
-                        || s.pessoaNome().toLowerCase().contains(clienteFiltro.toLowerCase()))
-                .filter(s -> status == null || s.statusServico().name().equals(status))
-                .limit(limite)
-                .toList();
+        List<ServicoResponseDTO> resultados = "FINALIZADO".equalsIgnoreCase(status)
+                ? servicoService.listarServicosFinalizados(null)
+                : servicoService.listarServicosEmAberto(null);
+
+        return resultados;
     }
 
     // ─── Escrita ──────────────────────────────────────────────────────────

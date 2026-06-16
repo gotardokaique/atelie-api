@@ -44,6 +44,7 @@ public class LiaOrchestrator {
     private final ValueDateExtractor extractor;
     private final ObjectMapper objectMapper;
     private final LiaProperties props;
+    private final LiaContextoService contextoService;
 
     public LiaOrchestrator(GrokClient grokClient,
                            LiaPromptProvider promptProvider,
@@ -53,7 +54,8 @@ public class LiaOrchestrator {
                            ReferenceResolver resolver,
                            ValueDateExtractor extractor,
                            ObjectMapper objectMapper,
-                           LiaProperties props) {
+                           LiaProperties props,
+                           LiaContextoService contextoService) {
         this.grokClient = grokClient;
         this.promptProvider = promptProvider;
         this.schemaRegistry = schemaRegistry;
@@ -63,24 +65,44 @@ public class LiaOrchestrator {
         this.extractor = extractor;
         this.objectMapper = objectMapper;
         this.props = props;
+        this.contextoService = contextoService;
     }
 
     // ─── Entrada principal ────────────────────────────────────────────────
 
-    public LiaResponse process(List<Map<String, Object>> messages,
+    public LiaResponse process(Long sitId,
+                               Long usuId,
+                               String mensagemUsuario,
                                boolean confirmado,
                                String toolName,
                                Map<String, Object> toolInput) {
 
+        // Confirmação de ação pendente: executa e só então o texto final vira histórico.
+        // O preview/confirmação não entra no contexto até ser efetivamente confirmado.
         if (confirmado && toolName != null && toolInput != null) {
-            return executarConfirmado(toolName, toolInput);
+            LiaResponse resposta = executarConfirmado(toolName, toolInput);
+            if (resposta.isFinalText()) {
+                contextoService.registrar(sitId, usuId, "assistant", resposta.resposta());
+            }
+            return resposta;
         }
+
+        // Fluxo normal: registra a fala do usuário e reconstrói a janela a partir do Redis.
+        contextoService.registrar(sitId, usuId, "user", mensagemUsuario);
 
         List<Map<String, Object>> fullMessages = new ArrayList<>();
         fullMessages.add(Map.of("role", "system", "content", promptProvider.systemPrompt()));
-        fullMessages.addAll(messages);
+        fullMessages.addAll(contextoService.janela(sitId, usuId));
 
-        return conversar(fullMessages, 0);
+        LiaResponse resposta = conversar(fullMessages, 0);
+
+        // Persiste apenas o TEXTO FINAL. Preview aguardando confirmação não vira histórico,
+        // e as mensagens efêmeras (assistant-com-tool_call + role:tool) de conversar() ficam
+        // restritas ao turno — gravá-las quebraria o próximo request do Grok (erro 400).
+        if (resposta.isFinalText()) {
+            contextoService.registrar(sitId, usuId, "assistant", resposta.resposta());
+        }
+        return resposta;
     }
 
     // ─── Confirmação de ação pendente ─────────────────────────────────────
@@ -114,6 +136,10 @@ public class LiaOrchestrator {
             log.error("[Lia] Falha na comunicação com o Grok: {}", e.getMessage(), e);
             return LiaResponse.error("Tive um problema ao processar. Tente novamente.");
         }
+
+        // Observabilidade de custo (best-effort, igual ao contexto Redis): nunca quebra o fluxo.
+        // depth é a iteração da chamada dentro do mesmo turno do usuário.
+        logarUsage(response, depth);
 
         Map<String, Object> message = extractMessage(response);
         if (message == null) {
@@ -251,17 +277,20 @@ public class LiaOrchestrator {
 
     private Map<String, Object> toolResultMessage(ParsedCall call, Object result) {
         try {
+            String json = objectMapper.writeValueAsString(result);
+            log.info("[Lia][toolresult] tool={} content={}", call.tool.wireName(), json);
             return Map.of(
                     "role", "tool",
                     "tool_call_id", call.id,
                     "name", call.tool.wireName(),
-                    "content", objectMapper.writeValueAsString(result));
+                    "content", json);
         } catch (Exception e) {
+            log.error("[Lia][toolresult] FALHA ao serializar resultado da tool {}: {}", e.getMessage(), e);
             return Map.of(
                     "role", "tool",
                     "tool_call_id", call.id,
                     "name", call.tool.wireName(),
-                    "content", "[]");
+                    "content", "{\"erro\":\"falha ao ler resultado\"}");
         }
     }
 
@@ -272,6 +301,42 @@ public class LiaOrchestrator {
             return LiaResponse.finalText("Não consegui gerar uma resposta. Tente novamente.");
         }
         return LiaResponse.finalText(texto);
+    }
+
+    // ─── Observabilidade de custo (tokens) ────────────────────────────────
+
+    /**
+     * Loga o usage de tokens da resposta crua do Grok numa linha greppável (chave=valor).
+     * Captura prompt/completion/total e reasoning_tokens (modelos de reasoning), quando
+     * existirem. Best-effort: campos ausentes saem como null e qualquer falha vira warn,
+     * nunca propaga. Não loga conteúdo de mensagens nem apiKey — só números e metadados.
+     */
+    @SuppressWarnings("unchecked")
+    private void logarUsage(Map<String, Object> response, int iteracao) {
+        try {
+            Object usageObj = response == null ? null : response.get("usage");
+            if (!(usageObj instanceof Map)) {
+                log.info("[Lia][usage] prompt={} completion={} reasoning={} total={} model={} iteracao={}",
+                        null, null, null, null, props.getModel(), iteracao);
+                return;
+            }
+
+            Map<String, Object> usage = (Map<String, Object>) usageObj;
+            Object prompt = usage.get("prompt_tokens");
+            Object completion = usage.get("completion_tokens");
+            Object total = usage.get("total_tokens");
+
+            Object reasoning = null;
+            Object detalhes = usage.get("completion_tokens_details");
+            if (detalhes instanceof Map) {
+                reasoning = ((Map<String, Object>) detalhes).get("reasoning_tokens");
+            }
+
+            log.info("[Lia][usage] prompt={} completion={} reasoning={} total={} model={} iteracao={}",
+                    prompt, completion, reasoning, total, props.getModel(), iteracao);
+        } catch (Exception e) {
+            log.warn("[Lia] Não foi possível logar usage de tokens: {}", e.getMessage());
+        }
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────

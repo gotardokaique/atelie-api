@@ -30,6 +30,8 @@ CRIAR  (criar_ordem_servico):  "anota", "registra", "abre", "cria", "novo servi�
 EDITAR (editar_ordem_servico): "muda", "atualiza", "corrige", "altera", "anota o valor X no serviço Y"
 BUSCAR (buscar_*):             "mostra", "lista", "quais", "tem algum", "quero ver"
 CADASTRAR (cadastrar_cliente): "cadastra o cliente", "novo cliente"
+AJUDA  (explicar_ajuda):       "como faço", "como extraio relatório", "onde fica", "o que você faz", "me ajuda"
+                               → chame explicar_ajuda com a área (geral p/ perguntas amplas).
 
 ═══ EDITAR POR NOME (IMPORTANTE) ═══
 O usuário NUNCA sabe o ID da OS. Ele diz "muda o valor do vestido da Ana pra 180".

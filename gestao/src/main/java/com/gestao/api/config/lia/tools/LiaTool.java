@@ -12,6 +12,7 @@ public enum LiaTool {
 
     BUSCAR_CLIENTES("buscar_clientes", false),
     BUSCAR_ORDENS_SERVICO("buscar_ordens_servico", false),
+    EXPLICAR_AJUDA("explicar_ajuda", false),
     CRIAR_ORDEM_SERVICO("criar_ordem_servico", true),
     EDITAR_ORDEM_SERVICO("editar_ordem_servico", true),
     CADASTRAR_CLIENTE("cadastrar_cliente", true);

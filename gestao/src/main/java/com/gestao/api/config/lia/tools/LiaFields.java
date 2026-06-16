@@ -40,4 +40,5 @@ public final class LiaFields {
     public static final String TELEFONE = "telefone";
     public static final String MEDIDAS = "medidas";
     public static final String CAMPOS = "campos";
+    public static final String AREA = "area";
 }

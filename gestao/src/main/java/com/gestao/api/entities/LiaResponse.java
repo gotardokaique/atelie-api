@@ -28,6 +28,11 @@ public record LiaResponse(
         return new LiaResponse(LiaFields.TIPO_PREVIEW, null, resumo, toolName, toolInput);
     }
 
+    /** Texto final do assistant — único tipo que entra no histórico de contexto. */
+    public boolean isFinalText() {
+        return LiaFields.TIPO_FINAL.equals(tipo);
+    }
+
     /** Serializa para o formato JSON esperado pelo frontend (sem campos nulos). */
     public Map<String, Object> toMap() {
         var map = new java.util.HashMap<String, Object>();

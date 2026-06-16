@@ -32,6 +32,16 @@ public class ToolSchemaRegistry {
                                 LiaFields.NOME, prop(STRING, "Nome para busca"),
                                 LiaFields.LIMITE, prop(INTEGER, "Máximo de resultados")))),
 
+                fn(LiaTool.EXPLICAR_AJUDA.wireName(),
+                        "Explica COMO usar o sistema: como fazer algo na tela, como extrair um "
+                                + "relatório, onde fica uma funcionalidade, ou 'o que você faz'. "
+                                + "Para perguntas amplas ('me ajuda', 'o que você faz') use area=geral; "
+                                + "para perguntas específicas use a área correspondente.",
+                        schema(List.of(LiaFields.AREA), Map.of(
+                                LiaFields.AREA, propEnum(
+                                        "Área de ajuda solicitada.",
+                                        List.of("servicos", "relatorios", "clientes", "financeiro", "geral"))))),
+
                 fn(LiaTool.BUSCAR_ORDENS_SERVICO.wireName(),
                         "Busca ordens de serviço por cliente ou status.",
                         schema(null, Map.of(
@@ -87,5 +97,9 @@ public class ToolSchemaRegistry {
 
     private Map<String, Object> prop(String type, String description) {
         return Map.of(TYPE, type, DESC, description);
+    }
+
+    private Map<String, Object> propEnum(String description, List<String> valores) {
+        return Map.of(TYPE, STRING, DESC, description, "enum", valores);
     }
 }
