@@ -481,12 +481,11 @@ public class RegisterUserBO {
             notificarAdminNovoUsuario(request.getNome(), email, ProviderUsuario.GOOGLE);
         }
 
-        // 5. Gerar JWT — mesmo fluxo do login normal
-        var jwt = tokenService.generateToken(usuario);
-        sessionService.storeToken(usuario.getId(), jwt);
-        HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000));
-
-        return ResponseEntity.ok(new LoginResponseDTO(jwt));
+        // 5. Emite a autenticação pela MESMA via do login/registro: cookie
+        // HttpOnly auth_token com o MESMO Domain (cookieDomain) + body. Antes
+        // usava addSecureCookie sem domain (host-only em api.<dominio>), o que
+        // impedia o front (apex) de enxergar o cookie e quebrava a sessão.
+        return emitirAutenticacao(usuario, response);
     }
 
     // ===================== NOTIFICAÇÃO ADMIN =====================
