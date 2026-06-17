@@ -1,10 +1,13 @@
 package com.gestao.api.entities;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -50,6 +53,17 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
 
     @Column(name = "usu_ativo", nullable = false)
     private Boolean ativo = true;
+    
+    @CreationTimestamp
+    @Column(name = "usu_data_cadastro", nullable = false, updatable = false)
+    private LocalDateTime dataCadastro;
+
+    @UpdateTimestamp
+    @Column(name = "usu_data_atualizacao", nullable = false)
+    private LocalDateTime dataAtualizacao;
+    
+    public LocalDateTime getDataCadastro() { return dataCadastro; }
+    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
 
     public Usuario() {}
 
