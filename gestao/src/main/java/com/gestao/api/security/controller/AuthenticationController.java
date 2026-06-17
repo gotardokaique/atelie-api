@@ -57,8 +57,9 @@ public class AuthenticationController extends AbstractController {
     }
 
     @MethodMapping(path = "/register", type = RequestMethod.POST, isPublic = true)
-    public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data) {
-        String email = data.email().trim().toLowerCase(); 
+    public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data,
+            HttpServletResponse response) {
+        String email = data.email().trim().toLowerCase();
         String senha = data.senha();
         String nome = data.nome();
 
@@ -78,14 +79,15 @@ public class AuthenticationController extends AbstractController {
                             "Senha fraca, tente usar caracteres especias, letras maiusculas..."));
         }
 
-        boolean cadastrado = registerBO.cadastrarUsuario(nome, email, passwordEncoder.encode(senha), null);
-        if (!cadastrado) {
+        try {
+            // Cria o usuário e já o autentica emitindo o MESMO token do login
+            // (cookie HttpOnly auth_token + body LoginResponseDTO).
+            return registerBO.cadastrarEAutenticar(nome, email, passwordEncoder.encode(senha), response);
+        } catch (Exception e) {
+            log.error("[SECURITY] Erro ao cadastrar e autenticar {}: {}", email, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(java.util.Map.of("message", "Hmm... algo deu errado, verifique sua conexão.."));
         }
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(java.util.Map.of("message", "Cadastro recebido. Se os dados estiverem corretos, você receberá uma confirmação."));
     }
 
     @MethodMapping(path = "/forgot-password", type = RequestMethod.POST, isPublic = true)

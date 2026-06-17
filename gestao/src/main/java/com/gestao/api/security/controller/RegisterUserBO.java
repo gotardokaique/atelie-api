@@ -246,22 +246,40 @@ public class RegisterUserBO {
         }
     }
 
-    public Boolean cadastrarUsuario(String nome, String email, String hashed, RoleEnum role) {
-        boolean isUserCadastrado;
-        var usuario = new Usuario(nome, email, hashed, role);
+    /**
+     * Persiste um novo usuário LOCAL e o autentica imediatamente, emitindo o
+     * MESMO token do login (cookie HttpOnly + body), na MESMA via. Não chama o
+     * endpoint de login: a autenticação é feita diretamente neste fluxo.
+     *
+     * @return resposta idêntica à do login ({@link LoginResponseDTO}) já com o
+     *         cookie de autenticação setado no {@code response}.
+     */
+    public ResponseEntity<?> cadastrarEAutenticar(String nome, String email, String hashed,
+            HttpServletResponse response) throws Exception {
+        var usuario = new Usuario(nome, email, hashed, (RoleEnum) null);
+        trans.insert(usuario);
 
-        try {
-            trans.insert(usuario);
-            isUserCadastrado = true;
-        } catch (Exception e) {
-            isUserCadastrado = false;
-        }
+        // Re-busca para garantir o id gerado pelo banco (mesmo cuidado do fluxo Google).
+        Usuario persistido = new QueryBuilder(trans).select()
+                .from(Usuario.class)
+                .where("email", Condicao.EQUAL, email)
+                .one();
 
-        if (isUserCadastrado) {
-            notificarAdminNovoUsuario(nome, email, ProviderUsuario.LOCAL);
-        }
+        notificarAdminNovoUsuario(nome, email, ProviderUsuario.LOCAL);
 
-        return isUserCadastrado;
+        return emitirAutenticacao(persistido, response);
+    }
+
+    /**
+     * Emite o token de autenticação reaproveitando exatamente o mesmo mecanismo
+     * do login: gera o JWT via {@link TokenService}, registra a sessão e entrega
+     * o token pelo cookie HttpOnly {@code auth_token} e no corpo da resposta.
+     */
+    private ResponseEntity<?> emitirAutenticacao(Usuario usuario, HttpServletResponse response) throws Exception {
+        var jwt = tokenService.generateToken(usuario);
+        sessionService.storeToken(usuario.getId(), jwt);
+        HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
+        return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
 
     // ===================== LOGIN (AGORA COM EMAIL + IP+EMAIL EM REDIS)
@@ -329,13 +347,10 @@ public class RegisterUserBO {
             resetTentativaEmail(email);
             resetTentativaIpEmail(email, clientIp);
 
-            var jwt = tokenService.generateToken(user);
-            sessionService.storeToken(user.getId(), jwt);
-
-            HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
+            ResponseEntity<?> resposta = emitirAutenticacao(user, response);
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
-            return ResponseEntity.ok(new LoginResponseDTO(jwt));
+            return resposta;
 
         } catch (BadCredentialsException | org.springframework.security.core.userdetails.UsernameNotFoundException e) {
 
