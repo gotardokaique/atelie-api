@@ -127,7 +127,10 @@ public class AuthenticationController extends AbstractController {
     public ResponseEntity<?> logout(HttpServletResponse response) {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
         sessionService.removeToken(user.getId());
+        
         HttpUtils.removeCookie(response, "auth_token");
+        HttpUtils.removeCookie(response, "session_revalidated");
+        
         return ResponseEntity.ok("Logout executado.");
     }
 
