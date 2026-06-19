@@ -31,6 +31,7 @@ public class LiaProperties {
     private double temperature = 0.1;
     private int janelaContexto = 20;
     private Duration ttlContexto = Duration.ofHours(24);
+    private int readTimeoutSeconds = 30;
 
     public String getApiKey() {
         return apiKey;
@@ -94,5 +95,13 @@ public class LiaProperties {
 
     public void setTtlContexto(Duration ttlContexto) {
         this.ttlContexto = ttlContexto;
+    }
+
+    public int getReadTimeoutSeconds() {
+        return readTimeoutSeconds;
+    }
+
+    public void setReadTimeoutSeconds(int readTimeoutSeconds) {
+        this.readTimeoutSeconds = readTimeoutSeconds;
     }
 }

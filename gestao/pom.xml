@@ -158,6 +158,21 @@
 			<artifactId>gen-core</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
+
+		<!-- Resilência da Lia (chamadas à xAI/Grok): circuit breaker, retry e bulkhead.
+		     Starter compatível com Spring Boot 4 (depende de spring-boot-autoconfigure 4.x /
+		     spring-core 7.x). NÃO usar resilience4j-spring-boot3 aqui — é compilado contra Boot 3. -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot4</artifactId>
+			<version>2.4.0</version>
+		</dependency>
+		<!-- Em Spring Boot 4, o starter-aop foi renomeado para starter-aspectj; ele
+		     habilita os aspects (@Aspect) que o resilience4j usa nas anotações do GrokClient. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aspectj</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
