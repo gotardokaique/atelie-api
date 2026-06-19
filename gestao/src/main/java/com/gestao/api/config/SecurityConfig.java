@@ -32,6 +32,7 @@ import com.gen.core.db.DAOController;
 import com.gestao.api.entities.Usuario;
 import com.gen.core.filter.BodySanitizingFilter;
 import com.gen.core.filter.RequestLoggingFilter;
+import com.gen.core.utils.HttpUtils;
 import com.gestao.api.security.JwtAuthenticationFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -108,7 +109,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint((req, res, e) -> {
                     res.setStatus(401);
                     res.setContentType("application/json");
-                    res.getWriter().write("{\"message\":\"Não autorizado\"}");
+                    res.getWriter().write("{\"message\":\"Nao autorizado\"}");
                 })
                 .accessDeniedHandler((req, res, e) -> {
                     res.setStatus(403);
@@ -118,13 +119,12 @@ public class SecurityConfig {
             )
 
             .headers(headers -> headers
-                .frameOptions(frame -> frame.deny())
-                .contentTypeOptions(Customizer.withDefaults())
-                .httpStrictTransportSecurity(hsts -> hsts
-                    .includeSubDomains(true)
-                    .maxAgeInSeconds(31536000) 
-                )
-            );
+            	    .addHeaderWriter((request, response) -> HttpUtils.addSecurityHeaders(response))
+            	    .httpStrictTransportSecurity(hsts -> hsts
+            	        .includeSubDomains(true)
+            	        .maxAgeInSeconds(31536000)
+            	    )
+            	);
 
         return http.build();
     }
@@ -199,7 +199,7 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setExposedHeaders(List.of("Set-Cookie"));
+//        config.setExposedHeaders(List.of("Set-Cookie"));
         config.setAllowedHeaders(List.of("Content-Type", "Accept", "Origin", "Cache-Control"));
 
         config.setAllowCredentials(true);
