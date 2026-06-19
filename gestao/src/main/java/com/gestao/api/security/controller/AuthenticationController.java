@@ -1,6 +1,7 @@
 package com.gestao.api.security.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,9 @@ public class AuthenticationController extends AbstractController {
 
     @Autowired
     private SessionService sessionService;
+    
+    @Value("${app.security.cookie.domain:}")
+    private String cookieDomain;
     @Autowired
     private PasswordEncoder passwordEncoder;
     @Autowired
@@ -128,22 +132,10 @@ public class AuthenticationController extends AbstractController {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
         sessionService.removeToken(user.getId());
         
-        HttpUtils.removeCookie(response, "auth_token");
-        HttpUtils.removeCookie(response, "session_revalidated");
+        HttpUtils.removeCookie(response, "auth_token", cookieDomain);
+        HttpUtils.removeCookie(response, "session_revalidated", cookieDomain);
         
         return ResponseEntity.ok("Logout executado.");
-    }
-
-    /**
-     * Invalida a sessão do usuário no Redis (chave única por user) e limpa o
-     * cookie atual. Efetivamente desloga este e quaisquer outros dispositivos.
-     */
-    @MethodMapping(path = "/logout-all", type = RequestMethod.POST)
-    public ResponseEntity<?> logoutAll(HttpServletResponse response) {
-        Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
-        sessionService.removeToken(user.getId());
-        HttpUtils.removeCookie(response, "auth_token");
-        return ResponseEntity.ok(java.util.Map.of("message", "Sessões encerradas em todos os dispositivos."));
     }
 
     @MethodMapping(path = "/me", type = RequestMethod.DELETE)
