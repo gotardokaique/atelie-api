@@ -17,11 +17,6 @@ import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 
-/**
- * Único ponto de contato HTTP com a xAI. Não conhece ateliê, OS nem cliente.
- * Usa RestClient (síncrono honesto) em vez de WebClient+block.
- * Slug, temperatura e reasoning effort vêm de LiaProperties — nada hardcoded.
- */
 @Component
 public class GrokClient {
 

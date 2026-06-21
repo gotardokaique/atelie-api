@@ -21,14 +21,16 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.db.WhereDB;
+import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.db.filter.FilterQuery;
+import com.gen.core.security.exception.BusinessException;
+import com.gestao.api.bo.EstoqueBO;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.FaturamentoServicoPeriodoDTO;
@@ -40,18 +42,14 @@ import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
+import com.gestao.api.entities.Despesa;
+import com.gestao.api.entities.FichaTecnica;
 import com.gestao.api.entities.Pessoa;
+import com.gestao.api.entities.Produto;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
-import com.gestao.api.services.exceptions.BusinessException;
-import com.gestao.api.services.exceptions.NotFoundException;
-import com.gestao.api.entities.FichaTecnica;
-import com.gestao.api.entities.Produto;
-import com.gestao.api.controllers.DTOs.DespesaDTO;
-import com.gestao.api.entities.Despesa;
-import com.gestao.api.bo.EstoqueBO;
 
 @Service
 public class ServicoService {

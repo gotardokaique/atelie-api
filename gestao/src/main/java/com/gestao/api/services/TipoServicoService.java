@@ -11,8 +11,7 @@ import com.gen.core.db.DAOController;
 import com.gen.core.db.Condicao;
 import com.gestao.api.entities.TipoServico;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.services.exceptions.NotFoundException;
-import com.gestao.api.services.exceptions.ResourceNotFoundException;
+import com.gen.core.db.exception.NotFoundException;
 
 
 @Service
@@ -98,7 +97,7 @@ public class TipoServicoService {
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (NotFoundException e) {
-            throw new ResourceNotFoundException("Tipo de Serviço não encontrado com id: " + id);
+            throw new NotFoundException("Tipo de Serviço não encontrado com id: " + id);
         }
     }
 

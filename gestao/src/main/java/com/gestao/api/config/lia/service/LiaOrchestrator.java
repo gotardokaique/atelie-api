@@ -278,7 +278,6 @@ public class LiaOrchestrator {
     private Map<String, Object> toolResultMessage(ParsedCall call, Object result) {
         try {
             String json = objectMapper.writeValueAsString(result);
-            log.info("[Lia][toolresult] tool={} content={}", call.tool.wireName(), json);
             return Map.of(
                     "role", "tool",
                     "tool_call_id", call.id,
@@ -316,8 +315,7 @@ public class LiaOrchestrator {
         try {
             Object usageObj = response == null ? null : response.get("usage");
             if (!(usageObj instanceof Map)) {
-                log.info("[Lia][usage] prompt={} completion={} reasoning={} total={} model={} iteracao={}",
-                        null, null, null, null, props.getModel(), iteracao);
+            
                 return;
             }
 

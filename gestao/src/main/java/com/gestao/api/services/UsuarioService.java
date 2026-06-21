@@ -11,7 +11,7 @@ import com.gestao.api.context.UserContext;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.RoleEnum;
 import com.gestao.api.select.Select;
-import com.gestao.api.services.exceptions.BusinessException;
+import com.gen.core.security.exception.BusinessException;
 
 @Service
 public class UsuarioService {

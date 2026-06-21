@@ -19,7 +19,7 @@ import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.PessoaService;
 import com.gestao.api.services.ServicoService;
-import com.gestao.api.services.exceptions.BusinessException;
+import com.gen.core.security.exception.BusinessException;
 
 /**
  * Executa as ações de negócio da Lia contra os services existentes.

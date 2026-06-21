@@ -16,8 +16,7 @@ import com.gestao.api.entities.FichaTecnica;
 import com.gestao.api.entities.Insumo;
 import com.gestao.api.entities.Produto;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.services.exceptions.NotFoundException;
-import com.gestao.api.services.exceptions.ResourceNotFoundException;
+import com.gen.core.db.exception.NotFoundException;
 
 @Service
 public class ProdutoService {
@@ -79,7 +78,7 @@ public class ProdutoService {
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (Exception e) {
-            throw new ResourceNotFoundException("Produto não encontrado: " + id);
+            throw new NotFoundException("Produto não encontrado: " + id);
         }
     }
 

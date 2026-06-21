@@ -37,7 +37,7 @@ import com.gestao.api.enuns.ProviderUsuario;
 import com.gestao.api.enuns.RoleEnum;
 import com.gestao.api.security.redefinir.RedefinirSenhaService;
 import com.gestao.api.select.Select;
-import com.gestao.api.services.exceptions.BusinessException;
+import com.gen.core.security.exception.BusinessException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

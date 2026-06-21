@@ -17,7 +17,7 @@ import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.ServicoService;
-import com.gestao.api.services.exceptions.BusinessException;
+import com.gen.core.security.exception.BusinessException;
 
 @RestController
 @RequestMapping("/api/v1/servicos")

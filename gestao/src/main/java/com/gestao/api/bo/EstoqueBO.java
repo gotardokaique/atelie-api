@@ -4,18 +4,19 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.DAOController;
+import com.gen.core.db.exception.NotFoundException;
+import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.entities.Insumo;
 import com.gestao.api.entities.MovimentacaoEstoque;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.enuns.TipoMovimentacao;
-import java.util.List;
 import com.gestao.api.repositories.InsumoRepository;
-import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.EstoqueInsuficienteException;
 
 /**
@@ -148,7 +149,7 @@ public class EstoqueBO {
                 registrar(insumo, servico, TipoMovimentacao.ENTRADA, qtde, nz(insumo.getCustoMedio()), 
                           "Estorno automático do serviço " + servico.getId());
             }
-        } catch (com.gestao.api.services.exceptions.NotFoundException e) {
+        } catch (NotFoundException e) {
             // Nenhum movimento encontrado, apenas ignora
         }
     }

@@ -12,12 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.db.WhereDB;
+import com.gen.core.db.exception.NotFoundException;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.DespesaDTO;
 import com.gestao.api.controllers.DTOs.DespesaTotalDTO;
 import com.gestao.api.entities.Despesa;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.services.exceptions.NotFoundException;
 
 @Service
 public class DespesaService {

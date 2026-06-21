@@ -11,11 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.db.QueryBuilder;
+import com.gen.core.db.exception.NotFoundException;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.MovimentacaoDTO;
 import com.gestao.api.entities.MovimentacaoEstoque;
 import com.gestao.api.enuns.TipoMovimentacao;
-import com.gestao.api.services.exceptions.NotFoundException;
 
 @Service
 public class MovimentacaoService {

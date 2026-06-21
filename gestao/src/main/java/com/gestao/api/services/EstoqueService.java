@@ -7,13 +7,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.gestao.api.controllers.DTOs.EstoqueDTO;
-import com.gestao.api.context.UserContext;
-import com.gen.core.db.DAOController;
 import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
+import com.gen.core.db.exception.NotFoundException;
+import com.gestao.api.context.UserContext;
+import com.gestao.api.controllers.DTOs.EstoqueDTO;
 import com.gestao.api.entities.Estoque;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.services.exceptions.NotFoundException;
 
 @Service
 public class EstoqueService {
