@@ -3,8 +3,10 @@ package com.gestao.api.entities;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -47,13 +49,9 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     @Column(name = "usu_foto", columnDefinition = "TEXT")
     private String foto;
 
-//    @Enumerated(EnumType.STRING)
-//    @Column(name = "usu_role", nullable = false)
-//    private RoleEnum role;
-
     @Column(name = "usu_ativo", nullable = false)
     private Boolean ativo = true;
-    
+
     @CreationTimestamp
     @Column(name = "usu_data_cadastro", nullable = false, updatable = false)
     private LocalDateTime dataCadastro;
@@ -61,18 +59,16 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     @UpdateTimestamp
     @Column(name = "usu_data_atualizacao", nullable = false)
     private LocalDateTime dataAtualizacao;
-    
-    public LocalDateTime getDataCadastro() { return dataCadastro; }
-    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
 
     public Usuario() {}
 
-    public Usuario(String nome, String email, String senha, RoleEnum role) {
+    public Usuario(String nome, String email, String senha) {
         this.nome = nome;
         this.email = email;
         this.senha = senha;
-//        this.role = role;
     }
+
+    // ---------- getters / setters ----------
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -95,16 +91,13 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     public String getFoto() { return foto; }
     public void setFoto(String foto) { this.foto = foto; }
 
-//    public RoleEnum getRole() { return role; }
-//    public void setRole(RoleEnum role) { this.role = role; }
-
     public Boolean getAtivo() { return ativo; }
     public void setAtivo(Boolean ativo) { this.ativo = ativo; }
 
-//    @Override
-//    public Collection<? extends GrantedAuthority> getAuthorities() {
-//        return List.of(new SimpleGrantedAuthority(role.name()));
-//    }
+    public LocalDateTime getDataCadastro() { return dataCadastro; }
+    public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
+
+    // ---------- UserDetails ----------
 
     @Override
     public String getPassword() { return senha; }
@@ -124,6 +117,19 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     @Override
     public boolean isEnabled() { return Boolean.TRUE.equals(ativo); }
 
+    // ---------- UserAccount (gen-core) ----------
+
+    @Override
+    public String getPasswordHash() { return senha; }
+
+    @Override
+    public void setPasswordHash(String encoded) { this.senha = encoded; }
+
+    @Override
+    public Long getUnidadeId() { return null; }
+
+    // ---------- equals / hashCode ----------
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -138,31 +144,13 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-		// TODO Auto-generated method stub
 		return null;
-	}
-
-	@Override
-	public String getPasswordHash() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Long getUnidadeId() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void setPasswordHash(String encoded) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public String getRole() {
-		// TODO Auto-generated method stub
 		return null;
 	}
+	
+	
 }

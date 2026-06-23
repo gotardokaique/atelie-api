@@ -73,7 +73,7 @@ public class UsuarioService {
         Usuario salvo = daoController.update(user);
         String provider = salvo.getProvider() != null ? salvo.getProvider().name() : "LOCAL";
         boolean googleVinculado = salvo.getGoogleId() != null && !salvo.getGoogleId().isBlank();
-        return new UserMeDTO(salvo.getNome(), salvo.getEmail(), salvo.getFoto(), provider, googleVinculado);
+        return new UserMeDTO(salvo.getNome(), salvo.getEmail(), salvo.getFoto(), provider, googleVinculado, null);
     }
 
     // ===================== HELPERS =====================
