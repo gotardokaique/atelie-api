@@ -96,6 +96,8 @@ public class SecurityConfig {
         		.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
         		// Endpoints marcados com @MethodMapping(isPublic = true) no gen-core
         		.requestMatchers(req -> publicEndpointRegistry.isPublic(req.getRequestURI())).permitAll()
+        		// Painel super-admin: defesa em profundidade (além do @PreAuthorize na classe)
+        		.requestMatchers("/api/v1/z_admin/**").hasRole("SUPER_ADMIN")
         		.anyRequest().authenticated()
         		)
 

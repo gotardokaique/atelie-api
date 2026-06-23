@@ -3,6 +3,7 @@ package com.gestao.api.security.controller;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 import com.gen.core.db.Condicao;
+import com.gen.core.db.DAOController;
 import com.gen.core.db.QueryBuilder;
 
 import com.gen.core.db.TransactionDB;
@@ -185,8 +187,6 @@ public class RegisterUserBO {
         redisTemplate.delete(key);
     }
 
-    // Wrappers específicos para EMAIL
-
     private TentativaLogin carregarTentativaEmail(String email) {
         return carregarTentativaPorChave(gerarChaveTentativaEmail(email));
     }
@@ -198,8 +198,6 @@ public class RegisterUserBO {
     private void resetTentativaEmail(String email) {
         resetTentativaPorChave(gerarChaveTentativaEmail(email));
     }
-
-    // Wrappers específicos para IP + EMAIL
 
     private TentativaLogin carregarTentativaIpEmail(String email, String ip) {
         return carregarTentativaPorChave(gerarChaveTentativaIpEmail(email, ip));
@@ -246,20 +244,11 @@ public class RegisterUserBO {
         }
     }
 
-    /**
-     * Persiste um novo usuário LOCAL e o autentica imediatamente, emitindo o
-     * MESMO token do login (cookie HttpOnly + body), na MESMA via. Não chama o
-     * endpoint de login: a autenticação é feita diretamente neste fluxo.
-     *
-     * @return resposta idêntica à do login ({@link LoginResponseDTO}) já com o
-     *         cookie de autenticação setado no {@code response}.
-     */
     public ResponseEntity<?> cadastrarEAutenticar(String nome, String email, String hashed,
             HttpServletResponse response) throws Exception {
-        var usuario = new Usuario(nome, email, hashed, (RoleEnum) null);
+        var usuario = new Usuario(nome, email, hashed);
         trans.insert(usuario);
 
-        // Re-busca para garantir o id gerado pelo banco (mesmo cuidado do fluxo Google).
         Usuario persistido = new QueryBuilder(trans).select()
                 .from(Usuario.class)
                 .where("email", Condicao.EQUAL, email)
@@ -270,20 +259,14 @@ public class RegisterUserBO {
         return emitirAutenticacao(persistido, response);
     }
 
-    /**
-     * Emite o token de autenticação reaproveitando exatamente o mesmo mecanismo
-     * do login: gera o JWT via {@link TokenService}, registra a sessão e entrega
-     * o token pelo cookie HttpOnly {@code auth_token} e no corpo da resposta.
-     */
     private ResponseEntity<?> emitirAutenticacao(Usuario usuario, HttpServletResponse response) throws Exception {
-        var jwt = tokenService.generateToken(usuario);
+   	 List<String> roles = Select.rolesDoUsuario(usuario.getId(), new DAOController(trans));
+
+        var jwt = tokenService.generateToken(usuario, roles);
         sessionService.storeToken(usuario.getId(), jwt);
         HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
         return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
-
-    // ===================== LOGIN (AGORA COM EMAIL + IP+EMAIL EM REDIS)
-    // =====================
 
     public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request,
             jakarta.servlet.http.HttpServletResponse response) {

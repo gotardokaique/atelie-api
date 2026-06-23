@@ -1,12 +1,17 @@
 package com.gestao.api.security.controller;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 import com.gen.core.api.AbstractController;
 import com.gen.core.api.EndpointMapping;
@@ -27,9 +32,6 @@ import com.gestao.api.services.UsuarioService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @EndpointMapping("/api/v1/auth")
 public class AuthenticationController extends AbstractController {
@@ -119,9 +121,16 @@ public class AuthenticationController extends AbstractController {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
         String provider = user.getProvider() != null ? user.getProvider().name() : "LOCAL";
         boolean googleVinculado = user.getGoogleId() != null && !user.getGoogleId().isBlank();
-        return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail(), user.getFoto(), provider, googleVinculado));
-    }
 
+        List<String> roles = SecurityContextHolder
+                .getContext().getAuthentication().getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .map(a -> a.startsWith("ROLE_") ? a.substring(5) : a)
+                .toList();
+
+        return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail(),
+                user.getFoto(), provider, googleVinculado, roles));
+    }
     @MethodMapping(path = "/me", type = RequestMethod.PUT)
     public ResponseEntity<?> updateMe(@RequestBody UpdateMeDTO dto) {
         return ResponseEntity.ok(usuarioService.atualizarPerfil(dto.nome(), dto.foto()));
