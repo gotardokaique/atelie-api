@@ -14,7 +14,9 @@ import org.springframework.util.StringUtils;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.db.WhereDB;
+import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.db.filter.FilterQuery;
+import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
@@ -24,9 +26,6 @@ import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.StatusServico;
-import com.gestao.api.services.exceptions.BusinessException;
-import com.gestao.api.services.exceptions.NotFoundException;
-import com.gestao.api.services.exceptions.ResourceNotFoundException;
 
 @Service
 public class PessoaService {
@@ -232,7 +231,7 @@ public class PessoaService {
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (NotFoundException e) {
-            throw new ResourceNotFoundException("Pessoa não encontrada com id: " + id);
+            throw new NotFoundException("Pessoa não encontrada com id: " + id);
         }
     }
 

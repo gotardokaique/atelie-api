@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.exception.NotFoundException;
+import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.bo.EstoqueBO;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.FechamentoResumoDTO;
@@ -28,19 +30,7 @@ import com.gestao.api.entities.Produto;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.ServicoProduto;
 import com.gestao.api.enuns.StatusServico;
-import com.gestao.api.services.exceptions.BusinessException;
-import com.gestao.api.services.exceptions.NotFoundException;
-import com.gestao.api.services.exceptions.ResourceNotFoundException;
 
-/**
- * Produtos vendidos no serviço + fechamento (explosão da ficha técnica, baixa de
- * estoque e cálculo de total/margem). Mantém o {@code ServicoService} existente
- * intacto.
- *
- * Trava §4.4: uma vez FINALIZADO, produtos e materiais do serviço não podem mais
- * ser alterados. O estorno (edição de serviço fechado) fica para a v2 — o ledger
- * já suporta via ENTRADA compensatória sem mudança de modelo.
- */
 @Service
 public class ServicoProdutoService {
 
@@ -101,7 +91,7 @@ public class ServicoProdutoService {
                     .where("servico.usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(servicoProdutoId);
         } catch (Exception e) {
-            throw new ResourceNotFoundException("Produto do serviço não encontrado: " + servicoProdutoId);
+            throw new NotFoundException("Produto do serviço não encontrado: " + servicoProdutoId);
         }
         dao.delete(sp);
     }
@@ -219,7 +209,7 @@ public class ServicoProdutoService {
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(servicoId);
         } catch (Exception e) {
-            throw new ResourceNotFoundException("Serviço não encontrado: " + servicoId);
+            throw new NotFoundException("Serviço não encontrado: " + servicoId);
         }
     }
 

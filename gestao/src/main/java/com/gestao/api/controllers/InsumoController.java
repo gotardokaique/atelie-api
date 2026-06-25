@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gen.core.db.filter.FilterQuery;
 import com.gestao.api.controllers.DTOs.AjusteEstoqueDTO;
 import com.gestao.api.controllers.DTOs.EntradaEstoqueDTO;
@@ -23,7 +24,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/insumos")
-public class InsumoController {
+public class InsumoController extends AbstractController {
 
     private final InsumoService insumoService;
 

@@ -3,25 +3,34 @@ package com.gestao.api.controllers;
 import java.util.List;
 import java.util.Map;
 
-import com.gestao.api.entities.Servico;
-import com.gestao.api.services.WorkService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gen.core.db.filter.FilterQuery;
+import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
+import com.gestao.api.entities.Servico;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.ServicoService;
-import com.gestao.api.services.exceptions.BusinessException;
+import com.gestao.api.services.WorkService;
 
 @RestController
 @RequestMapping("/api/v1/servicos")
-public class ServicoController {
+public class ServicoController extends AbstractController {
 
     private final ServicoService servicoService;
 

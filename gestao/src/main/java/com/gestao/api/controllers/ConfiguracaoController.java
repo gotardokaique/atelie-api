@@ -7,12 +7,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.ConfiguracaoDTO;
 import com.gestao.api.services.ConfiguracaoService;
 
 @RestController
 @RequestMapping("/api/v1/configuracoes")
-public class ConfiguracaoController {
+public class ConfiguracaoController extends AbstractController {
 
     private final ConfiguracaoService configuracaoService;
 

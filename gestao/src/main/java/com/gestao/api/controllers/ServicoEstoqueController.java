@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.FechamentoResumoDTO;
 import com.gestao.api.controllers.DTOs.FinalizarServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.MaterialConsumidoDTO;
@@ -27,7 +28,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/v1/servicos")
-public class ServicoEstoqueController {
+public class ServicoEstoqueController extends AbstractController {
 
     private final ServicoProdutoService servicoProdutoService;
 

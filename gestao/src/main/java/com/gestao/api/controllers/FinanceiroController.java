@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.HorarioPicoDTO;
 import com.gestao.api.controllers.DTOs.NomeValorDTO;
 import com.gestao.api.controllers.DTOs.PessoaRankingDTO;
@@ -18,7 +19,7 @@ import com.gestao.api.services.ServicoService;
 
 @RestController
 @RequestMapping("/api/v1/financeiro")
-public class FinanceiroController {
+public class FinanceiroController extends AbstractController {
 
     private final ServicoService servicoService;
 

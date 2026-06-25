@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.exception.NotFoundException;
 import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.FichaTecnicaItemDTO;
 import com.gestao.api.controllers.DTOs.ProdutoDTO;
@@ -16,8 +17,6 @@ import com.gestao.api.entities.FichaTecnica;
 import com.gestao.api.entities.Insumo;
 import com.gestao.api.entities.Produto;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.services.exceptions.NotFoundException;
-import com.gestao.api.services.exceptions.ResourceNotFoundException;
 
 @Service
 public class ProdutoService {
@@ -79,7 +78,7 @@ public class ProdutoService {
                     .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                     .id(id);
         } catch (Exception e) {
-            throw new ResourceNotFoundException("Produto não encontrado: " + id);
+            throw new NotFoundException("Produto não encontrado: " + id);
         }
     }
 

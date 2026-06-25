@@ -14,13 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.DespesaDTO;
 import com.gestao.api.controllers.DTOs.DespesaTotalDTO;
 import com.gestao.api.services.DespesaService;
 
 @RestController
 @RequestMapping("/api/v1/despesas")
-public class DespesaController {
+public class DespesaController extends AbstractController {
 
     private final DespesaService despesaService;
 

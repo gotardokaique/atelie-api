@@ -8,12 +8,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.FiltroRelatorioDTO;
 import com.gestao.api.services.RelatorioService;
 
 @RestController
 @RequestMapping("/api/v1/relatorios")
-public class RelatorioController {
+public class RelatorioController extends AbstractController {
 
     private static final String CSV_MEDIA_TYPE = "text/csv; charset=UTF-8";
     private static final String XLSX_MEDIA_TYPE =

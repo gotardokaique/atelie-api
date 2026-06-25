@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.ProdutoDTO;
 import com.gestao.api.services.ProdutoService;
 
@@ -20,7 +21,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/produtos")
-public class ProdutoController {
+public class ProdutoController extends AbstractController {
 
     private final ProdutoService produtoService;
 
