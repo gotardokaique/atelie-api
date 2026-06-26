@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.FechamentoResumoDTO;
 import com.gestao.api.controllers.DTOs.FinalizarServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.MaterialConsumidoDTO;
@@ -37,10 +38,11 @@ public class ServicoEstoqueController extends AbstractController {
     }
 
     @PostMapping("/{servicoId}/produtos")
-    public ResponseEntity<ServicoProdutoDTO> vincularProduto(@PathVariable Long servicoId,
+    public ResponseEntity<ApiResponse<ServicoProdutoDTO>> vincularProduto(@PathVariable Long servicoId,
             @Valid @RequestBody ServicoProdutoRequestDTO req) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(servicoProdutoService.vincularProduto(servicoId, req));
+                .body(ApiResponse.ok(servicoProdutoService.vincularProduto(servicoId, req),
+                        "Produto vinculado com sucesso."));
     }
 
     @GetMapping("/{servicoId}/produtos")
@@ -62,9 +64,10 @@ public class ServicoEstoqueController extends AbstractController {
     }
 
     @PostMapping("/{servicoId}/finalizar")
-    public ResponseEntity<FechamentoResumoDTO> finalizar(@PathVariable Long servicoId,
+    public ResponseEntity<ApiResponse<FechamentoResumoDTO>> finalizar(@PathVariable Long servicoId,
             @Valid @RequestBody FinalizarServicoRequestDTO req) {
-        return ResponseEntity.ok(servicoProdutoService.finalizar(servicoId, req));
+        return ResponseEntity.ok(ApiResponse.ok(servicoProdutoService.finalizar(servicoId, req),
+                "Serviço finalizado com sucesso."));
     }
 
     @GetMapping("/{servicoId}/resumo")

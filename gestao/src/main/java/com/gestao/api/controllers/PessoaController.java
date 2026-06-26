@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
 import com.gen.core.db.filter.FilterQuery;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
@@ -31,9 +32,10 @@ public class PessoaController extends AbstractController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> criarPessoa(@RequestBody PessoaDTO pessoaDTO) throws Exception {
+    public ResponseEntity<ApiResponse<Void>> criarPessoa(@RequestBody PessoaDTO pessoaDTO) throws Exception {
         pessoaService.criarPessoa(pessoaDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.okMessage("Cadastro criado com sucesso."));
     }
 
     @GetMapping
@@ -57,9 +59,9 @@ public class PessoaController extends AbstractController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> atualizarPessoa(@PathVariable Long id, @RequestBody PessoaDTO pessoaDTO) {
+    public ResponseEntity<ApiResponse<Void>> atualizarPessoa(@PathVariable Long id, @RequestBody PessoaDTO pessoaDTO) {
         pessoaService.atualizarPessoa(id, pessoaDTO);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.okMessage("Cadastro atualizado com sucesso."));
     }
 
     @DeleteMapping("/{id}")

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.ConfiguracaoDTO;
 import com.gestao.api.services.ConfiguracaoService;
 
@@ -27,7 +28,7 @@ public class ConfiguracaoController extends AbstractController {
     }
 
     @PutMapping
-    public ResponseEntity<ConfiguracaoDTO> atualizar(@RequestBody ConfiguracaoDTO dto) {
-        return ResponseEntity.ok(configuracaoService.atualizar(dto));
+    public ResponseEntity<ApiResponse<ConfiguracaoDTO>> atualizar(@RequestBody ConfiguracaoDTO dto) {
+        return ResponseEntity.ok(ApiResponse.ok(configuracaoService.atualizar(dto), "Configurações atualizadas com sucesso."));
     }
 }

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
 import com.gen.core.db.filter.FilterQuery;
+import com.gen.core.api.ApiResponse;
 import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
@@ -39,9 +40,10 @@ public class ServicoController extends AbstractController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> criarServico(@RequestBody ServicoRequestDTO requestDTO) {
+    public ResponseEntity<ApiResponse<Void>> criarServico(@RequestBody ServicoRequestDTO requestDTO) {
         servicoService.criarServico(requestDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.okMessage("Serviço criado com sucesso."));
     }
 
     @GetMapping("/alertas-prazo")
@@ -65,9 +67,9 @@ public class ServicoController extends AbstractController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> atualizarServicoCompleto(@PathVariable Long id, @RequestBody ServicoRequestDTO requestDTO) {
+    public ResponseEntity<ApiResponse<Void>> atualizarServicoCompleto(@PathVariable Long id, @RequestBody ServicoRequestDTO requestDTO) {
         servicoService.atualizarServicoCompleto(id, requestDTO);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.okMessage("Serviço atualizado com sucesso."));
     }
 
     @PatchMapping("/{id}/status-servico")

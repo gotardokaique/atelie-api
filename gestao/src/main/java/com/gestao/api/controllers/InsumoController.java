@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
 import com.gen.core.db.filter.FilterQuery;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.AjusteEstoqueDTO;
 import com.gestao.api.controllers.DTOs.EntradaEstoqueDTO;
 import com.gestao.api.controllers.DTOs.InsumoDTO;
@@ -33,8 +34,9 @@ public class InsumoController extends AbstractController {
     }
 
     @PostMapping
-    public ResponseEntity<InsumoDTO> criar(@Valid @RequestBody InsumoDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(insumoService.criar(dto));
+    public ResponseEntity<ApiResponse<InsumoDTO>> criar(@Valid @RequestBody InsumoDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(insumoService.criar(dto), "Insumo criado com sucesso."));
     }
 
     @GetMapping
@@ -53,8 +55,8 @@ public class InsumoController extends AbstractController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<InsumoDTO> atualizar(@PathVariable Long id, @Valid @RequestBody InsumoDTO dto) {
-        return ResponseEntity.ok(insumoService.atualizar(id, dto));
+    public ResponseEntity<ApiResponse<InsumoDTO>> atualizar(@PathVariable Long id, @Valid @RequestBody InsumoDTO dto) {
+        return ResponseEntity.ok(ApiResponse.ok(insumoService.atualizar(id, dto), "Insumo atualizado com sucesso."));
     }
 
     @DeleteMapping("/{id}")
@@ -64,12 +66,12 @@ public class InsumoController extends AbstractController {
     }
 
     @PostMapping("/{id}/entrada")
-    public ResponseEntity<InsumoDTO> registrarEntrada(@PathVariable Long id, @Valid @RequestBody EntradaEstoqueDTO dto) {
-        return ResponseEntity.ok(insumoService.registrarEntrada(id, dto));
+    public ResponseEntity<ApiResponse<InsumoDTO>> registrarEntrada(@PathVariable Long id, @Valid @RequestBody EntradaEstoqueDTO dto) {
+        return ResponseEntity.ok(ApiResponse.ok(insumoService.registrarEntrada(id, dto), "Entrada registrada com sucesso."));
     }
 
     @PostMapping("/{id}/ajuste")
-    public ResponseEntity<InsumoDTO> registrarAjuste(@PathVariable Long id, @Valid @RequestBody AjusteEstoqueDTO dto) {
-        return ResponseEntity.ok(insumoService.registrarAjuste(id, dto));
+    public ResponseEntity<ApiResponse<InsumoDTO>> registrarAjuste(@PathVariable Long id, @Valid @RequestBody AjusteEstoqueDTO dto) {
+        return ResponseEntity.ok(ApiResponse.ok(insumoService.registrarAjuste(id, dto), "Ajuste registrado com sucesso."));
     }
 }
