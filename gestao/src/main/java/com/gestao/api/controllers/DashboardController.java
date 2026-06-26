@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.DashboardStatsDTO;
 import com.gestao.api.controllers.DTOs.FaturamentoServicoPeriodoDTO;
 import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
@@ -16,7 +17,7 @@ import com.gestao.api.services.ServicoService;
 
 @RestController
 @RequestMapping("/api/v1/dashboard")
-public class DashboardController {
+public class DashboardController extends AbstractController {
 
     private final ServicoService servicoService;
     private final PessoaService pessoaService;

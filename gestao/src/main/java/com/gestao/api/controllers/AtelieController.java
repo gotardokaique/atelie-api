@@ -7,12 +7,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.AtelieDTO;
 import com.gestao.api.services.AtelieService;
 
 @RestController
 @RequestMapping("/api/v1/atelie")
-public class AtelieController {
+public class AtelieController extends AbstractController {
 
     private final AtelieService atelieService;
 
@@ -26,7 +28,7 @@ public class AtelieController {
     }
 
     @PutMapping
-    public ResponseEntity<AtelieDTO> atualizar(@RequestBody AtelieDTO dto) {
-        return ResponseEntity.ok(atelieService.atualizar(dto));
+    public ResponseEntity<ApiResponse<AtelieDTO>> atualizar(@RequestBody AtelieDTO dto) {
+        return ResponseEntity.ok(ApiResponse.ok(atelieService.atualizar(dto), "Ateliê atualizado com sucesso."));
     }
 }

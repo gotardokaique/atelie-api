@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.ProdutoDTO;
 import com.gestao.api.services.ProdutoService;
 
@@ -20,7 +22,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/produtos")
-public class ProdutoController {
+public class ProdutoController extends AbstractController {
 
     private final ProdutoService produtoService;
 
@@ -29,8 +31,9 @@ public class ProdutoController {
     }
 
     @PostMapping
-    public ResponseEntity<ProdutoDTO> criar(@Valid @RequestBody ProdutoDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(produtoService.criar(dto));
+    public ResponseEntity<ApiResponse<ProdutoDTO>> criar(@Valid @RequestBody ProdutoDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(produtoService.criar(dto), "Produto criado com sucesso."));
     }
 
     @GetMapping
@@ -44,8 +47,8 @@ public class ProdutoController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProdutoDTO> atualizar(@PathVariable Long id, @Valid @RequestBody ProdutoDTO dto) {
-        return ResponseEntity.ok(produtoService.atualizar(id, dto));
+    public ResponseEntity<ApiResponse<ProdutoDTO>> atualizar(@PathVariable Long id, @Valid @RequestBody ProdutoDTO dto) {
+        return ResponseEntity.ok(ApiResponse.ok(produtoService.atualizar(id, dto), "Produto atualizado com sucesso."));
     }
 
     @DeleteMapping("/{id}")

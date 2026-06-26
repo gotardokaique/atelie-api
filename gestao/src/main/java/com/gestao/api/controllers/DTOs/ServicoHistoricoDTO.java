@@ -9,8 +9,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.gestao.api.entities.Servico;
-import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.enuns.StatusPagamento;
+import com.gestao.api.enuns.StatusServico;
 
 public record ServicoHistoricoDTO(
         Long id,

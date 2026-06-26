@@ -2,25 +2,6 @@ package com.gestao.api.bo;
 
 import java.util.Map;
 
-/**
- * Templates HTML dos e-mails do Gestão Ateliê.
- *
- * Placeholders seguem o padrão {@code #nomeDoCampo#}. Use o helper
- * {@link #montar(String, Map)} para aplicar todos os replaces de uma vez:
- *
- * <pre>
- *   String html = TemplateEmailStr.montar(TemplateEmailStr.NOVO_USUARIO_ADMIN, Map.of(
- *       "nome", nome,
- *       "email", email,
- *       "provider", "Google",
- *       "dataHora", "31/12/2026 14:30",
- *       "ano", "2026"
- *   ));
- * </pre>
- *
- * Os templates usam acentos UTF-8 direto — o EmailBO envia com
- * {@code charset=UTF-8} no assunto e no corpo.
- */
 public final class TemplateEmailStr {
 
     private TemplateEmailStr() {}

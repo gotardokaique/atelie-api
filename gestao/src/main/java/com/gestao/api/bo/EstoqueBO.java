@@ -4,34 +4,21 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.DAOController;
+import com.gen.core.db.exception.NotFoundException;
+import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.entities.Insumo;
 import com.gestao.api.entities.MovimentacaoEstoque;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.enuns.TipoMovimentacao;
-import java.util.List;
 import com.gestao.api.repositories.InsumoRepository;
-import com.gestao.api.services.exceptions.BusinessException;
 import com.gestao.api.services.exceptions.EstoqueInsuficienteException;
 
-/**
- * Regras de movimentação de estoque. Toda alteração de saldo passa por aqui e
- * sempre acompanha um registro no ledger {@link MovimentacaoEstoque} — o saldo
- * denormalizado no {@link Insumo} é só cache.
- *
- * Nota de design: diferente do {@code EmailBO} (que acumula estado fluente em
- * campos de instância), este BO é um singleton compartilhado que executa escritas
- * concorrentes de estoque. Por isso os métodos são <b>stateless</b> — recebem todos
- * os argumentos e não guardam estado entre chamadas. A baixa de saldo usa UPDATE
- * atômico com guarda ({@link InsumoRepository#baixarSaldo}) em vez de read-modify-write,
- * o que evita corrida sem lock pessimista.
- *
- * O chamador deve passar o {@link Insumo} já carregado e escopado pelo usuário.
- */
 @Component
 public class EstoqueBO {
 
@@ -45,9 +32,6 @@ public class EstoqueBO {
         this.clock = clock;
     }
 
-    /**
-     * ENTRADA (compra). Recalcula o custo médio ponderado e soma ao saldo.
-     */
     @Transactional
     public MovimentacaoEstoque entrada(Insumo insumo, BigDecimal quantidade, BigDecimal custoUnitario,
             String observacao) {
@@ -72,13 +56,6 @@ public class EstoqueBO {
         return registrar(insumo, null, TipoMovimentacao.ENTRADA, quantidade, custoUnitario, observacao);
     }
 
-    /**
-     * SAIDA (consumo por serviço). Congela o custo médio do momento e baixa o saldo
-     * de forma atômica. Se o saldo for insuficiente, lança
-     * {@link EstoqueInsuficienteException} e a transação inteira sofre rollback.
-     *
-     * @param servico serviço de origem (não nulo em saída por serviço).
-     */
     @Transactional
     public MovimentacaoEstoque saida(Insumo insumo, BigDecimal quantidade, Servico servico, String observacao) {
         exigirPositivo(quantidade, "Quantidade de saída deve ser positiva.");
@@ -95,11 +72,6 @@ public class EstoqueBO {
         return registrar(insumo, servico, TipoMovimentacao.SAIDA, quantidade, custoCongelado, observacao);
     }
 
-    /**
-     * AJUSTE de inventário. Recebe a quantidade contada e posta a diferença
-     * (entrada ou saída) como movimentação AJUSTE, acertando o saldo. Não mexe no
-     * custo médio. Se não houver diferença, nada é registrado.
-     */
     @Transactional
     public MovimentacaoEstoque ajuste(Insumo insumo, BigDecimal quantidadeContada, String observacao) {
         if (quantidadeContada == null || quantidadeContada.signum() < 0) {
@@ -119,10 +91,6 @@ public class EstoqueBO {
         return registrar(insumo, null, TipoMovimentacao.AJUSTE, diff.abs(), nz(insumo.getCustoMedio()), observacao);
     }
 
-    /**
-     * Estorna (devolve ao saldo) todas as saídas geradas por um determinado serviço.
-     * Cria entradas compensatórias no histórico, preservando o custo médio.
-     */
     @Transactional
     public void estornarSaidasPorServico(Servico servico) {
         if (servico == null || servico.getId() == null) {
@@ -148,7 +116,7 @@ public class EstoqueBO {
                 registrar(insumo, servico, TipoMovimentacao.ENTRADA, qtde, nz(insumo.getCustoMedio()), 
                           "Estorno automático do serviço " + servico.getId());
             }
-        } catch (com.gestao.api.services.exceptions.NotFoundException e) {
+        } catch (NotFoundException e) {
             // Nenhum movimento encontrado, apenas ignora
         }
     }

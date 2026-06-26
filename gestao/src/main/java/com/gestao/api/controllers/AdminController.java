@@ -10,10 +10,6 @@ import com.gen.core.api.EndpointMapping;
 import com.gen.core.api.MethodMapping;
 import com.gestao.api.admin.bo.AdminBO;
 
-/**
- * Painel super-admin (backoffice do dono). Controller-as-router: zero lógica,
- * apenas delega ao {@link AdminBO}. Toda a classe é protegida por SUPER_ADMIN.
- */
 @EndpointMapping("/api/v1/z_admin")
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 public class AdminController extends AbstractController {

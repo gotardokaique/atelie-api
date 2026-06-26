@@ -1,8 +1,9 @@
 package com.gestao.api.context;
 
-import com.gestao.api.entities.Usuario;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import com.gestao.api.entities.Usuario;
 
 public class UserContext {
 

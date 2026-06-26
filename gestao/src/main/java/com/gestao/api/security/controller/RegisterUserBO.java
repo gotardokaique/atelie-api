@@ -20,26 +20,23 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
+import com.gen.core.bo.EmailBO;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.db.QueryBuilder;
-
 import com.gen.core.db.TransactionDB;
-import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.security.SessionService;
 import com.gen.core.security.TokenService;
+import com.gen.core.security.exception.BusinessException;
 import com.gen.core.utils.HttpUtils;
 import com.gen.core.utils.StringEncryptUtils;
-import com.gestao.api.bo.EmailBO;
 import com.gestao.api.bo.TemplateEmailStr;
 import com.gestao.api.controllers.DTOs.GoogleAuthRequest;
 import com.gestao.api.controllers.DTOs.LoginResponseDTO;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.ProviderUsuario;
-import com.gestao.api.enuns.RoleEnum;
 import com.gestao.api.security.redefinir.RedefinirSenhaService;
 import com.gestao.api.select.Select;
-import com.gestao.api.services.exceptions.BusinessException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -85,11 +82,8 @@ public class RegisterUserBO {
     private static final long BLOQUEIO_MINUTOS = 2;
     private final EmailBO emailBO;
 
-    // TTL geral da chave de tentativa (evita lixo eterno no Redis)
-    // Pode ser mais longo que o bloqueio (ex: 30 min)
     private static final long TENTATIVA_TTL_MINUTOS = 30;
 
-    // Prefixos distintos para separar EMAIL e IP+EMAIL
     private static final String LOGIN_ATTEMPT_EMAIL_PREFIX = "login:attempt:email:";
     private static final String LOGIN_ATTEMPT_IP_EMAIL_PREFIX = "login:attempt:ip_email:";
 
@@ -179,7 +173,6 @@ public class RegisterUserBO {
             redisTemplate.opsForHash().delete(key, "bloqueadoAte");
         }
 
-        // TTL razoável pra não acumular lixo
         redisTemplate.expire(key, TENTATIVA_TTL_MINUTOS, TimeUnit.MINUTES);
     }
 
@@ -222,13 +215,11 @@ public class RegisterUserBO {
         boolean temMaiuscula = senha.matches(".*[A-Z].*");
         boolean temMinuscula = senha.matches(".*[a-z].*");
         boolean temNumero = senha.matches(".*[0-9].*");
-        // boolean temEspecial = senha.matches(".*[^a-zA-Z0-9].*");
 
         if (!temMaiuscula || !temMinuscula || !temNumero) {
             return false;
         }
 
-        // Evita repetições tipo "aaa", "1111"
         if (senha.matches(".*(.)\\1{2,}.*")) {
             return false;
         }
@@ -287,7 +278,6 @@ public class RegisterUserBO {
                         .body(Map.of("message", "Esta conta usa login com Google. Entre pelo botão do Google."));
             }
         } catch (Exception ignorado) {
-            // usuário não encontrado ou erro — fluxo normal trata adiante
         }
 
         String clientIp = extrairIpCliente(request);
@@ -464,20 +454,10 @@ public class RegisterUserBO {
             notificarAdminNovoUsuario(request.getNome(), email, ProviderUsuario.GOOGLE);
         }
 
-        // 5. Emite a autenticação pela MESMA via do login/registro: cookie
-        // HttpOnly auth_token com o MESMO Domain (cookieDomain) + body. Antes
-        // usava addSecureCookie sem domain (host-only em api.<dominio>), o que
-        // impedia o front (apex) de enxergar o cookie e quebrava a sessão.
         return emitirAutenticacao(usuario, response);
     }
 
-    // ===================== NOTIFICAÇÃO ADMIN =====================
 
-    /**
-     * Envia um e-mail ao admin avisando que um novo usuário se cadastrou
-     * (manual ou via Google). Não propaga exceções: falhar o envio NÃO deve
-     * derrubar o cadastro/login do usuário.
-     */
     private void notificarAdminNovoUsuario(String nome, String email, ProviderUsuario provider) {
         try {
             if (adminEmail == null || adminEmail.isBlank()) {

@@ -9,20 +9,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.exception.NotFoundException;
 import com.gestao.api.admin.dto.MetricasDTO;
 import com.gestao.api.admin.dto.TenantDetalheDTO;
 import com.gestao.api.admin.dto.TenantListItemDTO;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.services.exceptions.NotFoundException;
 
-/**
- * Leitura agregada do painel super-admin.
- *
- * <p>Por regra de privacidade, este service NUNCA expõe conteúdo pessoal do tenant
- * (nomes de clientes, descrições de serviço, valores). Apenas contadores agregados.
- */
+
 @Component
 public class AdminConsultaService {
 

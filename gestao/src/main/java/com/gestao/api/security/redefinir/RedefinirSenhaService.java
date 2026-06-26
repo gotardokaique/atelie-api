@@ -1,6 +1,10 @@
 package com.gestao.api.security.redefinir;
 
-import lombok.SneakyThrows;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.Date;
+
 import org.springframework.security.core.token.KeyBasedPersistenceTokenService;
 import org.springframework.security.core.token.SecureRandomFactoryBean;
 import org.springframework.security.core.token.Token;
@@ -14,10 +18,7 @@ import com.gen.core.security.SessionService;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.redefinir.dto.PasswordTokenPublicData;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.Date;
+import lombok.SneakyThrows;
 
 @Service
 public class RedefinirSenhaService {

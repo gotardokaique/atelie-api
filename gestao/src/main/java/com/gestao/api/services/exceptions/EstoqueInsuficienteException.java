@@ -1,5 +1,7 @@
 package com.gestao.api.services.exceptions;
 
+import com.gen.core.security.exception.BusinessException;
+
 /**
  * Lançada quando uma SAIDA tenta baixar mais do que o saldo disponível.
  * Estende {@link BusinessException}, então é tratada como 400 pelo

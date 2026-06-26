@@ -4,14 +4,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gen.core.db.DAOController;
+import com.gen.core.security.exception.BusinessException;
+import com.gestao.api.context.UserContext;
 import com.gestao.api.controllers.DTOs.RegistroUsuarioRequestDTO;
 import com.gestao.api.controllers.DTOs.UserMeDTO;
-import com.gen.core.db.DAOController;
-import com.gestao.api.context.UserContext;
 import com.gestao.api.entities.Usuario;
-import com.gestao.api.enuns.RoleEnum;
 import com.gestao.api.select.Select;
-import com.gestao.api.services.exceptions.BusinessException;
 
 @Service
 public class UsuarioService {

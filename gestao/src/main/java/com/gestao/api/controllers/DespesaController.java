@@ -14,13 +14,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
+import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.DespesaDTO;
 import com.gestao.api.controllers.DTOs.DespesaTotalDTO;
 import com.gestao.api.services.DespesaService;
 
 @RestController
 @RequestMapping("/api/v1/despesas")
-public class DespesaController {
+public class DespesaController extends AbstractController {
 
     private final DespesaService despesaService;
 
@@ -29,9 +31,10 @@ public class DespesaController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> adicionarDespesa(@RequestBody DespesaDTO dto) {
+    public ResponseEntity<ApiResponse<Void>> adicionarDespesa(@RequestBody DespesaDTO dto) {
         despesaService.adicionarDespesa(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.okMessage("Despesa adicionada com sucesso."));
     }
 
     @GetMapping
@@ -45,9 +48,9 @@ public class DespesaController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> atualizarDespesa(@PathVariable Long id, @RequestBody DespesaDTO dto) {
+    public ResponseEntity<ApiResponse<Void>> atualizarDespesa(@PathVariable Long id, @RequestBody DespesaDTO dto) {
         despesaService.atualizarDespesa(id, dto);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.okMessage("Despesa atualizada com sucesso."));
     }
 
     @DeleteMapping("/{id}")

@@ -3,9 +3,11 @@ package com.gestao.api.config;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -22,20 +24,24 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gen.core.api.ApiResponse;
 import com.gen.core.api.PublicEndpointRegistry;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
-import com.gestao.api.entities.Usuario;
 import com.gen.core.filter.BodySanitizingFilter;
 import com.gen.core.filter.RequestLoggingFilter;
 import com.gen.core.utils.HttpUtils;
+import com.gen.core.utils.StringUtils;
+import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.JwtAuthenticationFilter;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.security.web.context.SecurityContextHolderFilter;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -53,21 +59,25 @@ public class SecurityConfig {
     @Value("${app.security.require-https:true}")
     private boolean requireHttps;
 
+    private final ObjectMapper objectMapper;
+    private final String DUMMY_HASH = "$2a$12$QeE1uWZKX8kI6gPlmYl5ye2oQ7wZJrGBwSJn1sRnTKe5BvWs3pQbC";
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           DAOController daoController,
                           PublicEndpointRegistry publicEndpointRegistry,
                           RequestLoggingFilter requestLoggingFilter,
-                          BodySanitizingFilter bodySanitizingFilter) {
+                          BodySanitizingFilter bodySanitizingFilter,
+                          ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.daoController = daoController;
         this.publicEndpointRegistry = publicEndpointRegistry;
         this.requestLoggingFilter = requestLoggingFilter;
         this.bodySanitizingFilter = bodySanitizingFilter;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // custo 12 é um bom equilíbrio entre segurança e performance
         return new BCryptPasswordEncoder(12);
     }
 
@@ -92,11 +102,8 @@ public class SecurityConfig {
 
         http
         .authorizeHttpRequests(auth -> auth
-        		// Pré-flight CORS
         		.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-        		// Endpoints marcados com @MethodMapping(isPublic = true) no gen-core
         		.requestMatchers(req -> publicEndpointRegistry.isPublic(req.getRequestURI())).permitAll()
-        		// Painel super-admin: defesa em profundidade (além do @PreAuthorize na classe)
         		.requestMatchers("/api/v1/z_admin/**").hasRole("SUPER_ADMIN")
         		.anyRequest().authenticated()
         		)
@@ -108,17 +115,19 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((req, res, e) -> {
-                    res.setStatus(401);
-                    res.setContentType("application/json");
-                    res.getWriter().write("{\"message\":\"Nao autorizado\"}");
-                })
-                .accessDeniedHandler((req, res, e) -> {
-                    res.setStatus(403);
-                    res.setContentType("application/json");
-                    res.getWriter().write("{\"message\":\"Acesso negado\"}");
-                })
-            )
+            	    .authenticationEntryPoint((req, res, e) -> {
+            	        res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            	        res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            	        res.setCharacterEncoding("UTF-8");
+            	        objectMapper.writeValue(res.getWriter(), ApiResponse.error("Não autorizado."));
+            	    })
+            	    .accessDeniedHandler((req, res, e) -> {
+            	        res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            	        res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            	        res.setCharacterEncoding("UTF-8");
+            	        objectMapper.writeValue(res.getWriter(), ApiResponse.error("Acesso negado."));
+            	    })
+            	)
 
             .headers(headers -> headers
             	    .addHeaderWriter((request, response) -> HttpUtils.addSecurityHeaders(response))
@@ -133,22 +142,20 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
-        final String DUMMY_HASH = "$2a$12$QeE1uWZKX8kI6gPlmYl5ye2oQ7wZJrGBwSJn1sRnTKe5BvWs3pQbC";
 
         return new AuthenticationProvider() {
 
             @Override
             public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-                String username = authentication.getName();
-                String senhaRaw = authentication.getCredentials() != null
-                        ? authentication.getCredentials().toString()
-                        : "";
+                String emailRaw = authentication.getName();
+                String senhaRaw = authentication.getCredentials() != null ? authentication.getCredentials().toString() : "";
+                String email = StringUtils.normalize(emailRaw);
+                
 
-                if (username == null) {
+                if (StringUtils.hasText(email) == false ) {
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
                 }
 
-                String email = username.trim().toLowerCase();
 
                 if (email.length() > 120 || senhaRaw.length() > 120) {
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
@@ -160,7 +167,6 @@ public class SecurityConfig {
                             .select()
                             .from(Usuario.class)
                             .where("email", Condicao.EQUAL, email)
-                            .limit(1)
                             .one();
                 } catch (Exception e) {
                 	
@@ -168,7 +174,7 @@ public class SecurityConfig {
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
                 }
 
-                if (!passwordEncoder.matches(senhaRaw, usuario.getSenha())) {
+                if (passwordEncoder.matches(senhaRaw, usuario.getSenha()) == false) {
                     throw new BadCredentialsException("Usuário ou senha inválidos.");
                 }
 

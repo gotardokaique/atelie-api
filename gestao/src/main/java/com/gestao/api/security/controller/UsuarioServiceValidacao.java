@@ -8,8 +8,6 @@ import com.gen.core.db.TransactionDB;
 import com.gen.core.db.exception.NotFoundException;
 import com.gestao.api.entities.Usuario;
 
-import jakarta.persistence.NoResultException;
-
 @Service
 public class UsuarioServiceValidacao {
 

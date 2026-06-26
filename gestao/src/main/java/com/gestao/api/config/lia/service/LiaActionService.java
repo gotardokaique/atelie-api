@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.gen.core.security.exception.BusinessException;
 import com.gestao.api.config.lia.prompet.LiaAjudaProvider;
 import com.gestao.api.config.lia.resolver.ReferenceResolver;
 import com.gestao.api.config.lia.tools.LiaFields;
@@ -19,7 +20,6 @@ import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.services.PessoaService;
 import com.gestao.api.services.ServicoService;
-import com.gestao.api.services.exceptions.BusinessException;
 
 /**
  * Executa as ações de negócio da Lia contra os services existentes.

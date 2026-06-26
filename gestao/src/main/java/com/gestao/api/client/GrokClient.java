@@ -17,11 +17,6 @@ import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 
-/**
- * Único ponto de contato HTTP com a xAI. Não conhece ateliê, OS nem cliente.
- * Usa RestClient (síncrono honesto) em vez de WebClient+block.
- * Slug, temperatura e reasoning effort vêm de LiaProperties — nada hardcoded.
- */
 @Component
 public class GrokClient {
 
@@ -67,11 +62,6 @@ public class GrokClient {
                 .body(Map.class);
     }
 
-    /**
-     * Fallback do @Retry. Assinatura = parâmetros de chat() + o Throwable que disparou.
-     * Traduz qualquer falha de resiliência numa exceção de domínio, que LiaOrchestrator
-     * captura e converte em mensagem amigável.
-     */
     @SuppressWarnings("unused")
     public Map<String, Object> chatFallback(List<Map<String, Object>> messages,
                                             List<Map<String, Object>> tools,

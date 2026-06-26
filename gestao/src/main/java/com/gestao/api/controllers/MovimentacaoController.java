@@ -10,13 +10,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gen.core.api.AbstractController;
 import com.gestao.api.controllers.DTOs.MovimentacaoDTO;
 import com.gestao.api.enuns.TipoMovimentacao;
 import com.gestao.api.services.MovimentacaoService;
 
 @RestController
 @RequestMapping("/api/v1/movimentacoes")
-public class MovimentacaoController {
+public class MovimentacaoController extends AbstractController {
 
     private final MovimentacaoService movimentacaoService;
 
