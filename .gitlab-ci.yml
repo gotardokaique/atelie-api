@@ -14,7 +14,6 @@ cache:
   paths:
     - .m2/repository
 
-
 build:
   stage: build
   image: maven:3.9-eclipse-temurin-21
@@ -52,7 +51,7 @@ deploy:
     - ssh-add "$SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
-script:
+  script:
     - |
       ssh -v -o StrictHostKeyChecking=accept-new "$VPS_USER@$VPS_HOST" "
         set -ex
