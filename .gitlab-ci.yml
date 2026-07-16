@@ -58,9 +58,12 @@ deploy:
         set -e
         echo '$CI_REGISTRY_PASSWORD' | docker login '$CI_REGISTRY' -u '$CI_REGISTRY_USER' --password-stdin
         cd '$DEPLOY_PATH'
-        echo 'ATELIE_TAG=$CI_COMMIT_TAG' > .env
-        docker compose pull atelie
-        docker compose up -d atelie
+        touch .env
+        grep -v '^ATELIE_TAG=' .env > .env.tmp || true
+        echo 'ATELIE_TAG=$CI_COMMIT_TAG' >> .env.tmp
+        mv .env.tmp .env
+        docker compose pull atelie-api
+        docker compose up -d atelie-api
         docker image prune -f
         docker logout '$CI_REGISTRY'
       "
