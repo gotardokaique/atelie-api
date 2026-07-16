@@ -5,7 +5,7 @@ stages:
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
-  MAVEN_CLI_OPTS: "-B -ntp -s ci_settings.xml"
+  MAVEN_CLI_OPTS: "-B -ntp -s ci_settings.xml -f gestao/pom.xml"
   IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
   IMAGE_LATEST: "$CI_REGISTRY_IMAGE:latest"
 
@@ -13,6 +13,7 @@ cache:
   key: "$CI_JOB_NAME"
   paths:
     - .m2/repository
+
 
 build:
   stage: build
@@ -23,7 +24,7 @@ build:
     - mvn $MAVEN_CLI_OPTS clean package
   artifacts:
     paths:
-      - target/*.jar
+      - gestao/target/*.jar
     expire_in: 1 hour
 
 dockerize:
