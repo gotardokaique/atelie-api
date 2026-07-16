@@ -51,11 +51,11 @@ deploy:
     - chmod 400 "$SSH_PRIVATE_KEY"
     - ssh-add "$SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-  script:
+    - ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+script:
     - |
-      ssh "$VPS_USER@$VPS_HOST" "
-        set -e
+      ssh -v -o StrictHostKeyChecking=accept-new "$VPS_USER@$VPS_HOST" "
+        set -ex
         echo '$CI_REGISTRY_PASSWORD' | docker login '$CI_REGISTRY' -u '$CI_REGISTRY_USER' --password-stdin
         cd '$DEPLOY_PATH'
         touch .env
