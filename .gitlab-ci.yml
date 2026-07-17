@@ -53,16 +53,16 @@ deploy:
     - ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
   script:
     - |
-      ssh -v -o StrictHostKeyChecking=accept-new "$VPS_USER@$VPS_HOST" "
+      ssh -o StrictHostKeyChecking=accept-new "$VPS_USER@$VPS_HOST" "
         set -ex
-        echo '$CI_REGISTRY_PASSWORD' | docker login '$CI_REGISTRY' -u '$CI_REGISTRY_USER' --password-stdin
+        echo '$CI_REGISTRY_PASSWORD' | sudo docker login '$CI_REGISTRY' -u '$CI_REGISTRY_USER' --password-stdin
         cd '$DEPLOY_PATH'
         touch .env
         grep -v '^ATELIE_TAG=' .env > .env.tmp || true
         echo 'ATELIE_TAG=$CI_COMMIT_TAG' >> .env.tmp
         mv .env.tmp .env
-        docker compose pull atelie-api
-        docker compose up -d atelie-api
-        docker image prune -f
-        docker logout '$CI_REGISTRY'
+        sudo docker compose pull atelie-api
+        sudo docker compose up -d atelie-api
+        sudo docker image prune -f
+        sudo docker logout '$CI_REGISTRY'
       "
