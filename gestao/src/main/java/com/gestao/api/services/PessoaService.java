@@ -2,6 +2,8 @@ package com.gestao.api.services;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
@@ -13,6 +15,7 @@ import org.springframework.util.StringUtils;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.PageResult;
 import com.gen.core.db.WhereDB;
 import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.db.filter.FilterQuery;
@@ -27,10 +30,17 @@ import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.StatusServico;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+
 @Service
 public class PessoaService {
 
     private final DAOController daoController;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public PessoaService(DAOController daoController) {
         this.daoController = daoController;
@@ -65,13 +75,20 @@ public class PessoaService {
     // ===================== LISTAR =====================
 
     @Transactional(readOnly = true)
-    public List<PessoaDTO> listarTodasPessoas(FilterQuery filter) {
+    public PageResult<PessoaDTO> listarTodasPessoas(FilterQuery filter, int page, int size, LocalDate dataInicio, LocalDate dataFim) {
         WhereDB where = new WhereDB();
         where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
 
         if (filter != null) {
             filter.applyTo(where);
         }
+
+        if (dataInicio != null && dataFim != null) {
+            where.add("dataCadastro", Condicao.BETWEEN, dataInicio, dataFim);
+        }
+
+        int pageSize = size > 0 ? size : 50;
+        int pageNumber = Math.max(page, 0);
 
         List<Pessoa> pessoas = daoController
                 .select()
@@ -80,9 +97,72 @@ public class PessoaService {
                 .where(where)
                 .orderBy("nome", true)
                 .orderBy("telefone", true)
+                .page(pageNumber + 1)
+                .pageableSize(pageSize)
                 .list();
 
-        return PessoaDTO.refactor(pessoas);
+        long totalElements = contarPessoas(where);
+
+        return new PageResult<>(PessoaDTO.refactor(pessoas), pageNumber, pageSize, totalElements);
+    }
+
+    // Query de contagem manual: espelha o mesmo WhereDB da listagem paginada
+    // (QueryBuilder não expõe count() nem os params já bindados).
+    private long contarPessoas(WhereDB where) {
+        StringBuilder jpql = new StringBuilder("SELECT COUNT(c) FROM Pessoa c JOIN c.usuario usuario ");
+        List<Object> params = new ArrayList<>();
+        boolean first = true;
+
+        for (WhereDB.WhereItem item : where.getItens()) {
+            jpql.append(first ? "WHERE " : "AND ");
+            first = false;
+
+            String campo = item.getCampo().contains(".") ? item.getCampo() : "c." + item.getCampo();
+            Condicao condicao = item.getCondicao();
+            Object[] valores = item.getValores();
+
+            switch (condicao) {
+                case BETWEEN -> {
+                    jpql.append(campo)
+                            .append(" BETWEEN ?").append(params.size() + 1)
+                            .append(" AND ?").append(params.size() + 2)
+                            .append(" ");
+                    params.add(valores[0]);
+                    params.add(valores[1]);
+                }
+                case IN -> {
+                    if (valores.length == 0) {
+                        jpql.append("1 = 0 ");
+                    } else {
+                        jpql.append(campo).append(" IN (");
+                        for (int i = 0; i < valores.length; i++) {
+                            if (i > 0) jpql.append(", ");
+                            jpql.append("?").append(params.size() + 1 + i);
+                        }
+                        jpql.append(") ");
+                        params.addAll(Arrays.asList(valores));
+                    }
+                }
+                case LIKE, ILIKE -> {
+                    String raw = String.valueOf(valores[0]);
+                    String likeVal = raw.contains("%") ? raw : "%" + raw + "%";
+                    jpql.append(campo).append(" ").append(condicao.getOperador())
+                            .append(" ?").append(params.size() + 1).append(" ");
+                    params.add(likeVal);
+                }
+                default -> {
+                    jpql.append(campo).append(" ").append(condicao.getOperador())
+                            .append(" ?").append(params.size() + 1).append(" ");
+                    params.add(valores[0]);
+                }
+            }
+        }
+
+        TypedQuery<Long> query = entityManager.createQuery(jpql.toString(), Long.class);
+        for (int i = 0; i < params.size(); i++) {
+            query.setParameter(i + 1, params.get(i));
+        }
+        return query.getSingleResult();
     }
 
     @Transactional(readOnly = true)
