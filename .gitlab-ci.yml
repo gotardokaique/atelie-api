@@ -47,8 +47,7 @@ deploy:
   before_script:
     - apk add --no-cache openssh-client
     - eval "$(ssh-agent -s)"
-    - chmod 400 "$SSH_PRIVATE_KEY"
-    - ssh-add "$SSH_PRIVATE_KEY"
+    - echo "$SSH_PRIVATE_KEY_B64" | base64 -d | ssh-add -
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
   script:
