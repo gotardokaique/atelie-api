@@ -1,5 +1,6 @@
 package com.gestao.api.controllers;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -11,9 +12,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
+import com.gen.core.db.PageResult;
 import com.gen.core.db.filter.FilterQuery;
 import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
@@ -39,8 +42,13 @@ public class PessoaController extends AbstractController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PessoaDTO>> listarTodasPessoas(FilterQuery filter) {
-        return ResponseEntity.ok(pessoaService.listarTodasPessoas(filter));
+    public ResponseEntity<PageResult<PessoaDTO>> listarTodasPessoas(
+            FilterQuery filter,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) LocalDate dataInicio,
+            @RequestParam(required = false) LocalDate dataFim) {
+        return ResponseEntity.ok(pessoaService.listarTodasPessoas(filter, page, size, dataInicio, dataFim));
     }
 
     @GetMapping("/clientes")
