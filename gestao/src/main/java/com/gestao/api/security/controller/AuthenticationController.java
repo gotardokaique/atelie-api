@@ -139,7 +139,7 @@ public class AuthenticationController extends AbstractController {
     @MethodMapping(path = "/logout", type = RequestMethod.POST)
     public ResponseEntity<?> logout(HttpServletResponse response) {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
-        sessionService.removeToken(user.getId());
+        sessionService.delete("user:session:" + user.getId()); 
         
         HttpUtils.removeCookie(response, "auth_token", cookieDomain);
         HttpUtils.removeCookie(response, "session_revalidated", cookieDomain);

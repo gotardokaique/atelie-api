@@ -37,10 +37,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
     private final DAOController daoController;
     private final SessionService sessionService;
+    
+    @Value("${security.session.idle-expiration-seconds}")
+    private long sessionIdleSeconds;
 
     private final long jwtExpirationMs;
     private final String cookieDomain;
-    /** Reemite o token quando a vida restante cai abaixo deste limiar (= janela de idle). */
     private final long rotationThresholdMs;
 
     public JwtAuthenticationFilter(TokenService tokenService,
@@ -100,7 +102,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String tokenSalvo = sessionService.getToken(usuario.getId());
+            String tokenSalvo = sessionService.get("user:session:" + usuario.getId());
             if (tokenSalvo == null) {
                 clearAuthCookie(response);
                 filterChain.doFilter(request, response);
@@ -114,15 +116,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            sessionService.refreshSession(usuario.getId());
-
+            sessionService.expire("user:session:" + usuario.getId(), sessionIdleSeconds);
+            
             roles = Select.rolesDoUsuario(usuario.getId(), daoController);
 
             long remainingMs = tokenService.getRemainingMs(jwt);
 
             if (remainingMs > 0 && remainingMs < rotationThresholdMs) {
                 String novoJwt = tokenService.generateToken(usuario, roles);
-                sessionService.storeToken(usuario.getId(), novoJwt);
+                sessionService.put("user:session:" + usuario.getId(), novoJwt, sessionIdleSeconds);
+                
                 HttpUtils.addSecureCookie(response, "auth_token", novoJwt,
                         (int) (jwtExpirationMs / 1000), cookieDomain);
                 logger.debug("Token rotacionado para usuário id={}", usuario.getId());

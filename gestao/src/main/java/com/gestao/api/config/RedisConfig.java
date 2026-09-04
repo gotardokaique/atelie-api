@@ -2,6 +2,9 @@ package com.gestao.api.config;
 
 import java.time.Duration;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -19,33 +22,39 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 @Configuration
 public class RedisConfig {
 
-	@Bean
-	public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    // PRODUÇÃO: cache no Redis
+    @Bean
+    @ConditionalOnProperty(name = "developer", havingValue = "false")
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
 
-	    ObjectMapper mapper = new ObjectMapper();
-	    mapper.registerModule(new JavaTimeModule());
-	    mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-	    mapper.activateDefaultTyping(
-	            LaissezFaireSubTypeValidator.instance,
-	            ObjectMapper.DefaultTyping.NON_FINAL,
-	            JsonTypeInfo.As.PROPERTY
-	    );
+        GenericJackson2JsonRedisSerializer serializer =
+                new GenericJackson2JsonRedisSerializer(mapper);
 
-	    GenericJackson2JsonRedisSerializer serializer =
-	            new GenericJackson2JsonRedisSerializer(mapper);
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration
+                .defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(55))
+                .disableCachingNullValues()
+                .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(serializer)
+                );
 
-	    RedisCacheConfiguration defaultConfig = RedisCacheConfiguration
-	            .defaultCacheConfig()
-	            .entryTtl(Duration.ofMinutes(55))   // TTL padrão 10 min
-	            .disableCachingNullValues()
-	            .serializeValuesWith(
-	                    RedisSerializationContext.SerializationPair.fromSerializer(serializer)
-	            );
+        return RedisCacheManager
+                .builder(connectionFactory)
+                .cacheDefaults(defaultConfig)
+                .build();
+    }
 
-	    return RedisCacheManager
-	            .builder(connectionFactory)
-	            .cacheDefaults(defaultConfig)
-	            .build();
-	}
-
+    @Bean
+    @ConditionalOnProperty(name = "developer", havingValue = "true")
+    public CacheManager cacheManagerDev() {
+        return new ConcurrentMapCacheManager();
+    }
 }

@@ -6,33 +6,26 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gen.core.security.SessionService;
 import com.gestao.api.config.lia.properties.LiaProperties;
 
-/**
- * Persistência da janela de contexto conversacional da Lia em Redis.
- *
- * Guarda apenas o essencial — a fala do usuário e o texto final do assistant —
- * numa lista por usuário, limitada às últimas N mensagens e com expiração por
- * inatividade. Todas as operações são best-effort: se o Redis estiver fora do ar,
- * o método loga e segue, NUNCA propaga exceção para o fluxo da conversa.
- */
 @Service
 public class LiaContextoService {
 
     private static final Logger log = LoggerFactory.getLogger(LiaContextoService.class);
 
-    private final StringRedisTemplate redisTemplate;
+    private final SessionService session;
     private final ObjectMapper objectMapper;
     private final LiaProperties props;
 
-    public LiaContextoService(StringRedisTemplate redisTemplate,
+    public LiaContextoService(SessionService session,
                               ObjectMapper objectMapper,
                               LiaProperties props) {
-        this.redisTemplate = redisTemplate;
+        this.session = session;
         this.objectMapper = objectMapper;
         this.props = props;
     }
@@ -41,31 +34,29 @@ public class LiaContextoService {
         return "lia:ctx:" + sitId + ":" + usuId;
     }
 
-    /**
-     * Anexa uma mensagem à janela do usuário, mantém só as últimas N e renova o TTL.
-     * Best-effort: falha de Redis apenas loga um warn.
-     */
     public void registrar(Long sitId, Long usuId, String role, String conteudo) {
         try {
             String chave = chave(sitId, usuId);
-            String json = objectMapper.writeValueAsString(Map.of("role", role, "content", conteudo));
 
-            redisTemplate.opsForList().rightPush(chave, json);
-            redisTemplate.opsForList().trim(chave, -props.getJanelaContexto(), -1);
-            redisTemplate.expire(chave, props.getTtlContexto());
+            List<String> itens = lerLista(chave);
+            itens.add(objectMapper.writeValueAsString(Map.of("role", role, "content", conteudo)));
+
+            int janela = props.getJanelaContexto();
+            if (itens.size() > janela) {
+                itens = new ArrayList<>(itens.subList(itens.size() - janela, itens.size()));
+            }
+
+            session.put(chave, objectMapper.writeValueAsString(itens),
+                        props.getTtlContexto().toSeconds());
         } catch (Exception e) {
             log.warn("[Lia] Não foi possível registrar contexto: {}", e.getMessage());
         }
     }
 
-    /**
-     * Devolve a janela atual em ordem cronológica. Itens corrompidos são ignorados.
-     * Best-effort: retorna lista vazia se não houver nada ou em caso de erro.
-     */
     public List<Map<String, Object>> janela(Long sitId, Long usuId) {
         try {
-            List<String> itens = redisTemplate.opsForList().range(chave(sitId, usuId), 0, -1);
-            if (itens == null || itens.isEmpty()) {
+            List<String> itens = lerLista(chave(sitId, usuId));
+            if (itens.isEmpty()) {
                 return List.of();
             }
 
@@ -83,6 +74,18 @@ public class LiaContextoService {
         } catch (Exception e) {
             log.warn("[Lia] Não foi possível ler contexto: {}", e.getMessage());
             return List.of();
+        }
+    }
+
+    private List<String> lerLista(String chave) {
+        String json = session.get(chave);
+        if (json == null || json.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return new ArrayList<>();
         }
     }
 }

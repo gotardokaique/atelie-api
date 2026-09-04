@@ -59,8 +59,7 @@ public class RedefinirSenhaService {
 
         usuario.setSenha(this.passwordEncoder.encode(newPassword));
         trans.update(usuario);
-        sessionService.removeToken(usuario.getId());
-    }
+        sessionService.delete("user:session:" + usuario.getId());    }
 
     private boolean isExpired(PasswordTokenPublicData publicData) {
         Instant createdAt = new Date(publicData.createAtTimestamp()).toInstant();

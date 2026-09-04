@@ -3,15 +3,14 @@ package com.gestao.api.security.controller;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -54,9 +53,6 @@ public class RegisterUserBO {
 
     @Autowired
     private SessionService sessionService;
-
-    @Autowired
-    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private RedefinirSenhaService redefinirSenhaService;
@@ -126,7 +122,7 @@ public class RegisterUserBO {
     }
 
     private TentativaLogin carregarTentativaPorChave(String key) {
-        Map<Object, Object> map = redisTemplate.opsForHash().entries(key);
+        Map<String, String> map = sessionService.getHash(key);
 
         TentativaLogin t = new TentativaLogin();
 
@@ -164,20 +160,20 @@ public class RegisterUserBO {
     }
 
     private void salvarTentativaPorChave(String key, TentativaLogin tentativa) {
-        redisTemplate.opsForHash().put(key, "tentativas", String.valueOf(tentativa.tentativas));
-        redisTemplate.opsForHash().put(key, "ultimaTentativa", tentativa.ultimaTentativa.toString());
-
+        Map<String, String> fields = new HashMap<>();
+        fields.put("tentativas", String.valueOf(tentativa.tentativas));
+        fields.put("ultimaTentativa", tentativa.ultimaTentativa.toString());
         if (tentativa.bloqueadoAte != null) {
-            redisTemplate.opsForHash().put(key, "bloqueadoAte", tentativa.bloqueadoAte.toString());
-        } else {
-            redisTemplate.opsForHash().delete(key, "bloqueadoAte");
+            fields.put("bloqueadoAte", tentativa.bloqueadoAte.toString());
         }
-
-        redisTemplate.expire(key, TENTATIVA_TTL_MINUTOS, TimeUnit.MINUTES);
+        sessionService.putHash(key, fields, TENTATIVA_TTL_MINUTOS * 60);
+        if (tentativa.bloqueadoAte == null) {
+            sessionService.deleteHashField(key, "bloqueadoAte");
+        }
     }
 
     private void resetTentativaPorChave(String key) {
-        redisTemplate.delete(key);
+        sessionService.delete(key);
     }
 
     private TentativaLogin carregarTentativaEmail(String email) {
@@ -251,10 +247,10 @@ public class RegisterUserBO {
     }
 
     private ResponseEntity<?> emitirAutenticacao(Usuario usuario, HttpServletResponse response) throws Exception {
-   	 List<String> roles = Select.rolesDoUsuario(usuario.getId(), new DAOController(trans));
+        List<String> roles = Select.rolesDoUsuario(usuario.getId(), new DAOController(trans));
 
         var jwt = tokenService.generateToken(usuario, roles);
-        sessionService.storeToken(usuario.getId(), jwt);
+        sessionService.put("user:session:" + usuario.getId(), jwt, jwtExpirationMs / 1000);
         HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
         return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
