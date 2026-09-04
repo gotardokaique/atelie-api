@@ -6,10 +6,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import com.gen.core.security.SessionService;
+
 @Service
 public class LoginRateLimiter {
 
-    private final StringRedisTemplate redisTemplate;
+    private final SessionService session;
 
     @Value("${security.login.max-attempts-per-ip:10}")	
     private int maxAttemptsPerIp;
@@ -21,8 +23,8 @@ public class LoginRateLimiter {
     @Value("${security.login.window-seconds:900}") 
     private int windowSeconds;
 
-    public LoginRateLimiter(StringRedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
+    public LoginRateLimiter(SessionService session) {
+        this.session = session;
     }
 
     private String keyIp(String ip) {
@@ -54,12 +56,12 @@ public class LoginRateLimiter {
     }
 
     public void resetAttempts(String ip, String email) {
-        redisTemplate.delete(keyIp(ip));
-        redisTemplate.delete(keyIpEmail(ip, email));
+        session.delete(keyIp(ip));
+        session.delete(keyIpEmail(ip, email));
     }
 
     private int getCount(String key) {
-        String value = redisTemplate.opsForValue().get(key);
+        String value = session.get(key);
         if (value == null) return 0;
         try {
             return Integer.parseInt(value);
@@ -69,10 +71,6 @@ public class LoginRateLimiter {
     }
 
     private void incrementWithTtl(String key) {
-        Long count = redisTemplate.opsForValue().increment(key);
-        if (count != null && count == 1L) {
-            // primeira tentativa -> define TTL
-            redisTemplate.expire(key, Duration.ofSeconds(windowSeconds));
-        }
+        session.increment(key, windowSeconds);
     }
 }
