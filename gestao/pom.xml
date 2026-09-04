@@ -26,9 +26,6 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
 	</properties>
-
-	<!-- Package Registry do gen-core (endpoint de projeto; namespace pessoal nao tem grupo).
-	     Precisa do ci_settings.xml + `-s ci_settings.xml` no CI para autenticar. -->
 	<repositories>
 		<repository>
 			<id>gitlab-maven</id>
@@ -140,16 +137,11 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-        <!-- ATENCAO: gen-core ja traz poi-ooxml 5.3.0 transitivamente.
-             Esta declaracao direta em 5.2.5 SOBRESCREVE a do gen-core (nearest-wins).
-             Ou remova esta linha (herda 5.3.0), ou alinhe para 5.3.0. Ver nota. -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
         </dependency>
-        <!-- ATENCAO: gen-core usa jjwt. Este java-jwt (auth0) provavelmente e legado.
-             Confirme se algum codigo do Atelie ainda importa com.auth0 antes de remover. -->
         <dependency>
             <groupId>com.auth0</groupId>
             <artifactId>java-jwt</artifactId>
@@ -167,19 +159,13 @@
 		<dependency>
 			<groupId>com.gen</groupId>
 			<artifactId>gen-core</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.2</version>
 		</dependency>
-
-		<!-- Resilência da Lia (chamadas à xAI/Grok): circuit breaker, retry e bulkhead.
-		     Starter compatível com Spring Boot 4 (depende de spring-boot-autoconfigure 4.x /
-		     spring-core 7.x). NÃO usar resilience4j-spring-boot3 aqui — é compilado contra Boot 3. -->
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>
 			<artifactId>resilience4j-spring-boot4</artifactId>
 			<version>2.4.0</version>
 		</dependency>
-		<!-- Em Spring Boot 4, o starter-aop foi renomeado para starter-aspectj; ele
-		     habilita os aspects (@Aspect) que o resilience4j usa nas anotações do GrokClient. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aspectj</artifactId>
