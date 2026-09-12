@@ -15,9 +15,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gen.core.api.AbstractController;
+import com.gen.core.db.PageResult;
 import com.gen.core.db.filter.FilterQuery;
 import com.gen.core.api.ApiResponse;
 import com.gen.core.security.exception.BusinessException;
@@ -52,13 +54,19 @@ public class ServicoController extends AbstractController {
     }
 
     @GetMapping("/em-aberto")
-    public ResponseEntity<List<ServicoResponseDTO>> listarServicosEmAberto(FilterQuery filter) {
-        return ResponseEntity.ok(servicoService.listarServicosEmAberto(filter));
+    public ResponseEntity<PageResult<ServicoResponseDTO>> listarServicosEmAberto(
+            FilterQuery filter,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(servicoService.listarServicosEmAberto(filter, page, size));
     }
 
     @GetMapping("/finalizados")
-    public ResponseEntity<List<ServicoResponseDTO>> listarServicosFinalizados(FilterQuery filter) {
-        return ResponseEntity.ok(servicoService.listarServicosFinalizados(filter));
+    public ResponseEntity<PageResult<ServicoResponseDTO>> listarServicosFinalizados(
+            FilterQuery filter,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(servicoService.listarServicosFinalizados(filter, page, size));
     }
 
     @GetMapping("/{id}")

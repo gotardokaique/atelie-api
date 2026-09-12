@@ -255,8 +255,7 @@ public class RegisterUserBO {
         return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
 
-    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request,
-            jakarta.servlet.http.HttpServletResponse response) {
+    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request, HttpServletResponse response) {
         String email = emailRaw.trim().toLowerCase();
 
         if (!REGEX_EMAIL.matcher(email).matches()) {

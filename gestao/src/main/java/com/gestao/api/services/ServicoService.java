@@ -9,6 +9,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
+import com.gen.core.db.PageResult;
 import com.gen.core.db.WhereDB;
 import com.gen.core.db.exception.NotFoundException;
 import com.gen.core.db.filter.FilterQuery;
@@ -51,6 +53,10 @@ import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.StatusPagamento;
 import com.gestao.api.enuns.StatusServico;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
+
 @Service
 public class ServicoService {
 
@@ -63,6 +69,9 @@ public class ServicoService {
     private final DespesaService despesaService;
     private final ProdutoService produtoService;
     private final EstoqueBO estoqueBO;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public ServicoService(DAOController daoController, Clock clock, DespesaService despesaService, ProdutoService produtoService, EstoqueBO estoqueBO) {
         this.daoController = daoController;
@@ -153,9 +162,7 @@ public class ServicoService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<ServicoResponseDTO> listarServicosEmAberto(FilterQuery filter) {
-
+    private WhereDB whereServicosEmAberto(FilterQuery filter) {
         WhereDB where = new WhereDB();
         where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
         where.add("statusServico", Condicao.IN,
@@ -166,6 +173,25 @@ public class ServicoService {
         if (filter != null) {
             filter.withEntityClass(Servico.class).applyTo(where);
         }
+        return where;
+    }
+
+    private WhereDB whereServicosFinalizados(FilterQuery filter) {
+        WhereDB where = new WhereDB();
+        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
+        where.add("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO);
+
+        if (filter != null) {
+            filter.withEntityClass(Servico.class).applyTo(where);
+        }
+        return where;
+    }
+
+  
+    // lia
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> listarServicosEmAberto(FilterQuery filter) {
+        WhereDB where = whereServicosEmAberto(filter);
 
         List<Servico> servicos;
         try {
@@ -194,14 +220,45 @@ public class ServicoService {
     }
 
     @Transactional(readOnly = true)
-    public List<ServicoResponseDTO> listarServicosFinalizados(FilterQuery filter) {
-        WhereDB where = new WhereDB();
-        where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
-        where.add("statusServico", Condicao.EQUAL, StatusServico.FINALIZADO);
+    public PageResult<ServicoResponseDTO> listarServicosEmAberto(FilterQuery filter, int page, int size) {
+        WhereDB where = whereServicosEmAberto(filter);
 
-        if (filter != null) {
-            filter.withEntityClass(Servico.class).applyTo(where);
+        int pageSize = size > 0 ? size : 50;
+        int pageNumber = Math.max(page, 0);
+
+        List<Servico> servicos;
+        try {
+            servicos = daoController
+                    .select()
+                    .from(Servico.class)
+                    .leftJoin("pessoa")
+                    .join("usuario")
+                    .where(where)
+                    .orderByRaw(
+                            "CASE WHEN (c.urgente = true OR c.statusServico = ?) THEN 0 ELSE 1 END ASC",
+                            StatusServico.URGENTE)
+                    .orderByRaw("CASE WHEN c.dataEntregaPrevista IS NULL THEN 1 ELSE 0 END ASC")
+                    .orderByRaw(
+                            "CASE WHEN c.dataEntregaPrevista IS NOT NULL AND c.dataEntregaPrevista <= CURRENT_DATE THEN 0 ELSE 1 END ASC")
+                    .orderBy("dataEntregaPrevista", true)
+                    .orderBy("dataCadastro", true)
+                    .page(pageNumber + 1)
+                    .pageableSize(pageSize)
+                    .list();
+
+        } catch (NotFoundException not) {
+            servicos = new ArrayList<>();
         }
+
+        long totalElements = contarServicos(where);
+
+        return new PageResult<>(ServicoResponseDTO.refactor(servicos), pageNumber, pageSize, totalElements);
+    }
+
+    // lia.
+    @Transactional(readOnly = true)
+    public List<ServicoResponseDTO> listarServicosFinalizados(FilterQuery filter) {
+        WhereDB where = whereServicosFinalizados(filter);
 
         List<Servico> servicos = daoController
                 .select()
@@ -215,6 +272,89 @@ public class ServicoService {
                 .list();
 
         return ServicoResponseDTO.refactor(servicos);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<ServicoResponseDTO> listarServicosFinalizados(FilterQuery filter, int page, int size) {
+        WhereDB where = whereServicosFinalizados(filter);
+
+        int pageSize = size > 0 ? size : 50;
+        int pageNumber = Math.max(page, 0);
+
+        List<Servico> servicos = daoController
+                .select()
+                .from(Servico.class)
+                .leftJoin("pessoa")
+                .join("usuario")
+                .where(where)
+                .orderBy("statusPagamento", false)
+                .orderBy("dataCadastro", false)
+                .page(pageNumber + 1)
+                .pageableSize(pageSize)
+                .list();
+
+        long totalElements = contarServicos(where);
+
+        return new PageResult<>(ServicoResponseDTO.refactor(servicos), pageNumber, pageSize, totalElements);
+    }
+
+    // Query de contagem manual: espelha o mesmo WhereDB da listagem paginada
+    // (QueryBuilder não expõe count() nem os params já bindados).
+    private long contarServicos(WhereDB where) {
+        StringBuilder jpql = new StringBuilder("SELECT COUNT(c) FROM Servico c JOIN c.usuario usuario ");
+        List<Object> params = new ArrayList<>();
+        boolean first = true;
+
+        for (WhereDB.WhereItem item : where.getItens()) {
+            jpql.append(first ? "WHERE " : "AND ");
+            first = false;
+
+            String campo = item.getCampo().contains(".") ? item.getCampo() : "c." + item.getCampo();
+            Condicao condicao = item.getCondicao();
+            Object[] valores = item.getValores();
+
+            switch (condicao) {
+                case BETWEEN -> {
+                    jpql.append(campo)
+                            .append(" BETWEEN ?").append(params.size() + 1)
+                            .append(" AND ?").append(params.size() + 2)
+                            .append(" ");
+                    params.add(valores[0]);
+                    params.add(valores[1]);
+                }
+                case IN -> {
+                    if (valores.length == 0) {
+                        jpql.append("1 = 0 ");
+                    } else {
+                        jpql.append(campo).append(" IN (");
+                        for (int i = 0; i < valores.length; i++) {
+                            if (i > 0) jpql.append(", ");
+                            jpql.append("?").append(params.size() + 1 + i);
+                        }
+                        jpql.append(") ");
+                        params.addAll(Arrays.asList(valores));
+                    }
+                }
+                case LIKE, ILIKE -> {
+                    String raw = String.valueOf(valores[0]);
+                    String likeVal = raw.contains("%") ? raw : "%" + raw + "%";
+                    jpql.append(campo).append(" ").append(condicao.getOperador())
+                            .append(" ?").append(params.size() + 1).append(" ");
+                    params.add(likeVal);
+                }
+                default -> {
+                    jpql.append(campo).append(" ").append(condicao.getOperador())
+                            .append(" ?").append(params.size() + 1).append(" ");
+                    params.add(valores[0]);
+                }
+            }
+        }
+
+        TypedQuery<Long> query = entityManager.createQuery(jpql.toString(), Long.class);
+        for (int i = 0; i < params.size(); i++) {
+            query.setParameter(i + 1, params.get(i));
+        }
+        return query.getSingleResult();
     }
 
     @Transactional(readOnly = true)
