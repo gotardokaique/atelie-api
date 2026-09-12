@@ -159,7 +159,7 @@
 		<dependency>
 			<groupId>com.gen</groupId>
 			<artifactId>gen-core</artifactId>
-			<version>1.0.3</version>
+			<version>1.1.11</version>
 		</dependency>
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>
