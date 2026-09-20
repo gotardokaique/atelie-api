@@ -10,16 +10,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -32,23 +29,19 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gen.core.api.ApiResponse;
 import com.gen.core.api.PublicEndpointRegistry;
-import com.gen.core.db.Condicao;
-import com.gen.core.db.DAOController;
 import com.gen.core.filter.BodySanitizingFilter;
 import com.gen.core.filter.RequestLoggingFilter;
 import com.gen.core.utils.HttpUtils;
-import com.gen.core.utils.StringUtils;
-import com.gestao.api.entities.Usuario;
 import com.gestao.api.security.JwtAuthenticationFilter;
 
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final DAOController daoController;
     private final PublicEndpointRegistry publicEndpointRegistry;
     private final RequestLoggingFilter requestLoggingFilter;
     private final BodySanitizingFilter bodySanitizingFilter;
@@ -60,16 +53,13 @@ public class SecurityConfig {
     private boolean requireHttps;
 
     private final ObjectMapper objectMapper;
-    private final String DUMMY_HASH = "$2a$12$QeE1uWZKX8kI6gPlmYl5ye2oQ7wZJrGBwSJn1sRnTKe5BvWs3pQbC";
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          DAOController daoController,
                           PublicEndpointRegistry publicEndpointRegistry,
                           RequestLoggingFilter requestLoggingFilter,
                           BodySanitizingFilter bodySanitizingFilter,
                           ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.daoController = daoController;
         this.publicEndpointRegistry = publicEndpointRegistry;
         this.requestLoggingFilter = requestLoggingFilter;
         this.bodySanitizingFilter = bodySanitizingFilter;
@@ -138,62 +128,6 @@ public class SecurityConfig {
             	);
 
         return http.build();
-    }
-
-    @Bean
-    public AuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
-
-        return new AuthenticationProvider() {
-
-            @Override
-            public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-                String emailRaw = authentication.getName();
-                String senhaRaw = authentication.getCredentials() != null ? authentication.getCredentials().toString() : "";
-                String email = StringUtils.normalize(emailRaw);
-                
-
-                if (StringUtils.hasText(email) == false ) {
-                    throw new BadCredentialsException("Usuário ou senha inválidos.");
-                }
-
-
-                if (email.length() > 120 || senhaRaw.length() > 120) {
-                    throw new BadCredentialsException("Usuário ou senha inválidos.");
-                }
-
-                Usuario usuario;
-                try {
-                    usuario = daoController
-                            .select()
-                            .from(Usuario.class)
-                            .where("email", Condicao.EQUAL, email)
-                            .one();
-                } catch (Exception e) {
-                	
-                    passwordEncoder.matches(senhaRaw, DUMMY_HASH);
-                    throw new BadCredentialsException("Usuário ou senha inválidos.");
-                }
-
-                if (passwordEncoder.matches(senhaRaw, usuario.getSenha()) == false) {
-                    throw new BadCredentialsException("Usuário ou senha inválidos.");
-                }
-
-                if (!usuario.isAccountNonLocked() || !usuario.isEnabled()) {
-                    throw new BadCredentialsException("Usuário ou senha inválidos.");
-                }
-
-                return new UsernamePasswordAuthenticationToken(
-                        usuario,
-                        null,
-                        usuario.getAuthorities()
-                );
-            }
-
-            @Override
-            public boolean supports(Class<?> authentication) {
-                return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
-            }
-        };
     }
 
     @Bean
