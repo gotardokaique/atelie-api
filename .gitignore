@@ -31,4 +31,10 @@
 .DS_Store
 Thumbs.db
 
-src/main/resources/
+# Config local (segredos) - nunca versionar
+config.properties
+**/config.properties
+!**/config.properties.example
+application.properties
+**/application.properties
+!**/application.properties.example
