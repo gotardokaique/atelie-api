@@ -2,13 +2,13 @@ package com.gestao.api.entities;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 
 import com.gen.core.contracts.UserAccount;
 import com.gestao.api.enuns.ProviderUsuario;
@@ -17,14 +17,16 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements UserDetails, Serializable, UserAccount {
+public class Usuario implements UserAccount, Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -54,6 +56,9 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     @Column(name = "usu_ativo", nullable = false)
     private Boolean ativo = true;
 
+    @OneToMany(mappedBy = "usuario", fetch = FetchType.EAGER)
+    private List<UsuarioAcesso> acessos = new ArrayList<>();
+
     @CreationTimestamp
     @Column(name = "usu_data_cadastro", nullable = false, updatable = false)
     private LocalDateTime dataCadastro;
@@ -70,14 +75,13 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
         this.senha = senha;
     }
 
-    // ---------- getters / setters ----------
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
 
+    @Override
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
@@ -96,30 +100,13 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     public Boolean getAtivo() { return ativo; }
     public void setAtivo(Boolean ativo) { this.ativo = ativo; }
 
+    public List<UsuarioAcesso> getAcessos() { return acessos; }
+    public void setAcessos(List<UsuarioAcesso> acessos) { this.acessos = acessos; }
+
     public LocalDateTime getDataCadastro() { return dataCadastro; }
     public LocalDateTime getDataAtualizacao() { return dataAtualizacao; }
 
-    // ---------- UserDetails ----------
-
-    @Override
-    public String getPassword() { return senha; }
-
-    @Override
-    public String getUsername() { return email; }
-
-    @Override
-    public boolean isAccountNonExpired() { return true; }
-
-    @Override
-    public boolean isAccountNonLocked() { return true; }
-
-    @Override
-    public boolean isCredentialsNonExpired() { return true; }
-
-    @Override
-    public boolean isEnabled() { return Boolean.TRUE.equals(ativo); }
-
-    // ---------- UserAccount (gen-core) ----------
+    // ---------- UserAccount ----------
 
     @Override
     public String getPasswordHash() { return senha; }
@@ -130,29 +117,30 @@ public class Usuario implements UserDetails, Serializable, UserAccount {
     @Override
     public Long getUnidadeId() { return null; }
 
+    @Override
+    public Collection<String> getRoles() {
+        if (acessos == null) return List.of();
+        return acessos.stream()
+                .map(a -> a.getPerfil().getCodigo())
+                .toList();
+    }
+
+    @Override
+    public boolean isEnabled() { return Boolean.TRUE.equals(ativo); }
+
     // ---------- equals / hashCode ----------
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Usuario usuario)) return false;
-        return Objects.equals(id, usuario.id) && Objects.equals(email, usuario.email);
+        if (o instanceof Usuario usuario) {
+            return Objects.equals(id, usuario.id) && Objects.equals(email, usuario.email);
+        }
+        return false;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id, email);
     }
-
-	@Override
-	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return null;
-	}
-
-	@Override
-	public String getRole() {
-		return null;
-	}
-	
-	
 }
