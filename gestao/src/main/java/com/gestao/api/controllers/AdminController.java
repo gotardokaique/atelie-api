@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import com.gen.core.api.AbstractController;
 import com.gen.core.api.EndpointMapping;
 import com.gen.core.api.MethodMapping;
-import com.gestao.api.admin.bo.AdminBO;
+import com.gestao.api.bo.AdminBO;
 
 @EndpointMapping("/api/v1/z_admin")
 @PreAuthorize("hasRole('SUPER_ADMIN')")

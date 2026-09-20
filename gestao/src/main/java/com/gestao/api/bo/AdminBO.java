@@ -1,4 +1,4 @@
-package com.gestao.api.admin.bo;
+package com.gestao.api.bo;
 
 import java.util.List;
 
