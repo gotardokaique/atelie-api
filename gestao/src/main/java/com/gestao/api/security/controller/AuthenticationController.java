@@ -1,6 +1,7 @@
 package com.gestao.api.security.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import com.gen.core.api.AbstractController;
 import com.gen.core.api.EndpointMapping;
 import com.gen.core.api.MethodMapping;
+import com.gen.core.constants.FWConstante;
 import com.gen.core.context.UserContext;
+import com.gen.core.security.RoleUtils;
 import com.gen.core.security.SessionService;
 import com.gen.core.utils.HttpUtils;
 import com.gestao.api.controllers.DTOs.GoogleAuthRequest;
@@ -38,17 +42,23 @@ public class AuthenticationController extends AbstractController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthenticationController.class);
 
-    @Autowired
-    private SessionService sessionService;
-    
-    @Value("${app.security.cookie.domain:}")
-    private String cookieDomain;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private static final int MAX_EMAIL_LENGTH = 50;
+    private static final int MAX_SENHA_LENGTH = 70;
+
     @Autowired
     private RegisterUserBO registerBO;
+
+    @Autowired
+    private SessionService sessionService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Autowired
     private UsuarioService usuarioService;
+
+    @Value("${app.security.cookie.domain:}")
+    private String cookieDomain;
 
     @MethodMapping(path = "/login", type = RequestMethod.POST, isPublic = true)
     public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto,
@@ -65,34 +75,34 @@ public class AuthenticationController extends AbstractController {
     @MethodMapping(path = "/register", type = RequestMethod.POST, isPublic = true)
     public ResponseEntity<?> register(@RequestBody @Valid RegistroUsuarioRequestDTO data,
             HttpServletResponse response) {
+
         String email = data.email().trim().toLowerCase();
         String senha = data.senha();
         String nome = data.nome();
 
-        if (email.length() >= 50 || senha.length() >= 70) {
+        if (email.length() >= MAX_EMAIL_LENGTH || senha.length() >= MAX_SENHA_LENGTH) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(java.util.Map.of("message", "E-mail e ou senha muito longos..."));
+                    .body(Map.of("message", "E-mail e ou senha muito longos..."));
         }
 
         if (registerBO.isEmailJaRegistrado(email)) {
             return ResponseEntity.status(HttpStatus.ACCEPTED)
-                    .body(java.util.Map.of("message", "Cadastro recebido. Se os dados estiverem corretos, você receberá uma confirmação."));
+                    .body(Map.of("message",
+                            "Cadastro recebido. Se os dados estiverem corretos, você receberá uma confirmação."));
         }
 
-        if (!registerBO.validarSenhaForte(senha)) {
+        if (registerBO.validarSenhaForte(senha) == false) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(java.util.Map.of("message",
+                    .body(Map.of("message",
                             "Senha fraca, tente usar caracteres especias, letras maiusculas..."));
         }
 
         try {
-            // Cria o usuário e já o autentica emitindo o MESMO token do login
-            // (cookie HttpOnly auth_token + body LoginResponseDTO).
             return registerBO.cadastrarEAutenticar(nome, email, passwordEncoder.encode(senha), response);
         } catch (Exception e) {
             log.error("[SECURITY] Erro ao cadastrar e autenticar {}: {}", email, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(java.util.Map.of("message", "Hmm... algo deu errado, verifique sua conexão.."));
+                    .body(Map.of("message", "Hmm... algo deu errado, verifique sua conexão.."));
         }
     }
 
@@ -120,17 +130,17 @@ public class AuthenticationController extends AbstractController {
     public ResponseEntity<?> getMe() {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
         String provider = user.getProvider() != null ? user.getProvider().name() : "LOCAL";
-        boolean googleVinculado = user.getGoogleId() != null && !user.getGoogleId().isBlank();
+        boolean googleVinculado = user.getGoogleId() != null && user.getGoogleId().isBlank() == false;
 
-        List<String> roles = SecurityContextHolder
+        List<String> roles = RoleUtils.semPrefixo(SecurityContextHolder
                 .getContext().getAuthentication().getAuthorities().stream()
-                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                .map(a -> a.startsWith("ROLE_") ? a.substring(5) : a)
-                .toList();
+                .map(GrantedAuthority::getAuthority)
+                .toList());
 
         return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail(),
                 user.getFoto(), provider, googleVinculado, roles));
     }
+
     @MethodMapping(path = "/me", type = RequestMethod.PUT)
     public ResponseEntity<?> updateMe(@RequestBody UpdateMeDTO dto) {
         return ResponseEntity.ok(usuarioService.atualizarPerfil(dto.nome(), dto.foto()));
@@ -139,17 +149,17 @@ public class AuthenticationController extends AbstractController {
     @MethodMapping(path = "/logout", type = RequestMethod.POST)
     public ResponseEntity<?> logout(HttpServletResponse response) {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
-        sessionService.delete("user:session:" + user.getId()); 
-        
-        HttpUtils.removeCookie(response, "auth_token", cookieDomain);
-        HttpUtils.removeCookie(response, "session_revalidated", cookieDomain);
-        
+        sessionService.delete(FWConstante.sessionKey(user.getId()));
+
+        HttpUtils.removeCookie(response, FWConstante.AUTH_COOKIE_NAME, cookieDomain);
+        HttpUtils.removeCookie(response, FWConstante.SESSION_REVALIDATED_COOKIE, cookieDomain);
+
         return ResponseEntity.ok("Logout executado.");
     }
 
     @MethodMapping(path = "/me", type = RequestMethod.DELETE)
     public ResponseEntity<?> excluirConta() {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(java.util.Map.of("message", "Exclusão de conta em breve."));
+                .body(Map.of("message", "Exclusão de conta em breve."));
     }
 }
