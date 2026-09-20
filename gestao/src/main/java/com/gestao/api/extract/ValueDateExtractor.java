@@ -11,14 +11,6 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
-/**
- * Extração DETERMINÍSTICA de valor e data — usada apenas como FALLBACK quando o
- * modelo deixou o campo tipado vazio. Não é uma segunda fonte de verdade
- * competindo com o prompt: o modelo é a fonte primária, isto é a rede de segurança.
- *
- * Corrige o bug do código antigo no cálculo de dia da semana, agora resolvido
- * com TemporalAdjusters.next() — uma linha, correto para todos os 7 dias.
- */
 @Component
 public class ValueDateExtractor {
 
