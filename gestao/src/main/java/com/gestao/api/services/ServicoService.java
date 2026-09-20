@@ -423,7 +423,7 @@ public class ServicoService {
         servicoExistente.setValor(requestDTO.valor());
         servicoExistente.setUrgente(Boolean.TRUE.equals(requestDTO.urgente()));
 
-        if (!FINALIZADO.equals(servicoExistente.getStatusServico())) {
+        if (FINALIZADO.equals(servicoExistente.getStatusServico()) == false) {
             if (servicoExistente.isUrgente()) {
                 servicoExistente.setStatusServico(StatusServico.URGENTE);
             } else {
@@ -948,7 +948,7 @@ public class ServicoService {
 
         boolean notificar = true;
         int diasAntecedencia = 3;
-        if (!cfgs.isEmpty()) {
+        if (cfgs.isEmpty() == false) {
             com.gestao.api.entities.Configuracao cfg = cfgs.get(0);
             if (Boolean.FALSE.equals(cfg.getNotificarPrazo())) notificar = false;
             if (cfg.getDiasAntecedenciaPrazo() != null && cfg.getDiasAntecedenciaPrazo() > 0) {
@@ -956,7 +956,7 @@ public class ServicoService {
             }
         }
 
-        if (!notificar) {
+        if (notificar == false) {
             return List.of();
         }
 
@@ -982,8 +982,8 @@ public class ServicoService {
 
         return todos.stream()
                 .filter(s -> s.getDataEntregaPrevista() != null)
-                .filter(s -> !s.getDataEntregaPrevista().isBefore(hoje))
-                .filter(s -> !s.getDataEntregaPrevista().isAfter(limite))
+                .filter(s -> s.getDataEntregaPrevista().isBefore(hoje) == false)
+                .filter(s -> s.getDataEntregaPrevista().isAfter(limite) == false)
                 .map(ServicoResponseDTO::refactor)
                 .collect(Collectors.toList());
     }
@@ -1085,7 +1085,7 @@ public class ServicoService {
             if (s.getDataCadastro() == null)
                 continue;
             YearMonth ym = YearMonth.from(s.getDataCadastro());
-            if (!valorPorMes.containsKey(ym))
+            if (valorPorMes.containsKey(ym) == false)
                 continue;
             BigDecimal v = s.getValor() == null ? BigDecimal.ZERO : s.getValor();
             valorPorMes.put(ym, valorPorMes.get(ym).add(v));

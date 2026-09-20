@@ -315,7 +315,7 @@ public class LiaOrchestrator {
     private void logarUsage(Map<String, Object> response, int iteracao) {
         try {
             Object usageObj = response == null ? null : response.get("usage");
-            if (!(usageObj instanceof Map)) {
+            if ((usageObj instanceof Map) == false) {
                 log.info("[Lia][usage] prompt={} completion={} reasoning={} total={} model={} iteracao={}",
                         null, null, null, null, props.getModel(), iteracao);
                 return;

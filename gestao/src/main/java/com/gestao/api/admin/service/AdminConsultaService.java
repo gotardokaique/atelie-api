@@ -74,7 +74,7 @@ public class AdminConsultaService {
 
         long novosNoMes = usuarios.stream()
                 .map(Usuario::getDataCadastro)
-                .filter(d -> d != null && !d.isBefore(inicioMes) && !d.isAfter(fimMes))
+                .filter(d -> d != null && d.isBefore(inicioMes) == false && d.isAfter(fimMes) == false)
                 .count();
 
         return new MetricasDTO(total, ativos, inativos, novosNoMes);

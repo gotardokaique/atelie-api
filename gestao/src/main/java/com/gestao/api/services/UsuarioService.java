@@ -53,7 +53,6 @@ public class UsuarioService {
         user.setNome(registroDTO.nome().trim());
         user.setEmail(emailNormalizado);
         user.setSenha(passwordEncoder.encode(registroDTO.senha()));
-//        user.setRole(RoleEnum.ROLE_USER);
 
         salvar(user);
     }
@@ -64,14 +63,14 @@ public class UsuarioService {
     public UserMeDTO atualizarPerfil(String nome, String foto) {
         Usuario user = daoController.select().from(Usuario.class).id(UserContext.getIdUsuario());
 
-        if (nome != null && !nome.trim().isEmpty()) {
+        if (nome != null && nome.trim().isEmpty() == false) {
             user.setNome(nome.trim());
         }
         user.setFoto(foto); // foto null = remover
 
         Usuario salvo = daoController.update(user);
         String provider = salvo.getProvider() != null ? salvo.getProvider().name() : "LOCAL";
-        boolean googleVinculado = salvo.getGoogleId() != null && !salvo.getGoogleId().isBlank();
+        boolean googleVinculado = salvo.getGoogleId() != null && salvo.getGoogleId().isBlank() == false;
         return new UserMeDTO(salvo.getNome(), salvo.getEmail(), salvo.getFoto(), provider, googleVinculado, null);
     }
 
@@ -96,8 +95,8 @@ public class UsuarioService {
         }
 
         // precisa ter: número, maiúscula e minúscula
-        if (!senha.matches(".*[A-Z].*") ||
-            !senha.matches(".*[a-z].*")) {
+        if (senha.matches(".*[A-Z].*") == false ||
+            senha.matches(".*[a-z].*") == false) {
             throw new BusinessException("Senha fraca.");
         }
     }

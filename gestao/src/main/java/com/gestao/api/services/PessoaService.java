@@ -335,15 +335,15 @@ public class PessoaService {
 
     private void validarDadosPessoa(String nomeLimpo, String telefoneLimpo) {
 
-        if (nomeLimpo != null && !StringUtils.hasText(nomeLimpo)) {
+        if (nomeLimpo != null && StringUtils.hasText(nomeLimpo) == false) {
             throw new BusinessException("O nome da pessoa não pode ser composto apenas por espaços.");
         }
 
-        if (!StringUtils.hasText(telefoneLimpo)) {
+        if (StringUtils.hasText(telefoneLimpo) == false) {
             throw new BusinessException("Telefone é obrigatório.");
         }
 
-        if (!telefoneLimpo.matches("^[0-9]+$")) {
+        if (telefoneLimpo.matches("^[0-9]+$") == false) {
             throw new BusinessException("Telefone deve conter apenas números.");
         }
 

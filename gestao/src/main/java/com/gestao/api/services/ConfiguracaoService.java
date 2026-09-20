@@ -69,7 +69,7 @@ public class ConfiguracaoService {
                 .limit(1)
                 .list();
 
-        if (!existentes.isEmpty()) {
+        if (existentes.isEmpty() == false) {
             return existentes.get(0);
         }
 

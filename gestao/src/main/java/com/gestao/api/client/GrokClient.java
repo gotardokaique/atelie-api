@@ -51,7 +51,7 @@ public class GrokClient {
         body.put("tools", tools);
         body.put("tool_choice", "auto");
         body.put("temperature", props.getTemperature());
-        if (props.getReasoningEffort() != null && !props.getReasoningEffort().isBlank()) {
+        if (props.getReasoningEffort() != null && props.getReasoningEffort().isBlank() == false) {
             body.put("reasoning_effort", props.getReasoningEffort());
         }
 

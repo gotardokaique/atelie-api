@@ -293,7 +293,7 @@ public class RelatorioService {
                 if (atual == null || dc.isAfter(atual)) {
                     ultimaOS.put(pid, dc);
                 }
-                if (!dc.isBefore(intervalo.inicio()) && !dc.isAfter(intervalo.fim())) {
+                if (dc.isBefore(intervalo.inicio()) == false && dc.isAfter(intervalo.fim()) == false) {
                     teveOSNoPeriodo.put(pid, true);
                 }
             }
@@ -577,7 +577,7 @@ public class RelatorioService {
 
             acc.total++;
             if (s.getDataEntregaPrevista() != null
-                    && !s.getDataFinalizacao().isAfter(s.getDataEntregaPrevista())) {
+                    && s.getDataFinalizacao().isAfter(s.getDataEntregaPrevista()) == false) {
                 acc.noPrazo++;
             } else {
                 acc.atrasadas++;
@@ -704,7 +704,7 @@ public class RelatorioService {
         YearMonth atual = YearMonth.from(intervalo.inicio());
         YearMonth fim = YearMonth.from(intervalo.fim());
 
-        while (!atual.isAfter(fim)) {
+        while (atual.isAfter(fim) == false) {
             meses.add(atual);
             atual = atual.plusMonths(1);
         }

@@ -128,7 +128,7 @@ public class DespesaService {
         int mes;
         int ano;
 
-        if (mesAno != null && !mesAno.isBlank()) {
+        if (mesAno != null && mesAno.isBlank() == false) {
             String[] parts = mesAno.split("/");
             mes = Integer.parseInt(parts[0]);
             ano = Integer.parseInt(parts[1]);

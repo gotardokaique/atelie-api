@@ -204,7 +204,7 @@ public class WorkService {
        ====================================================== */
 
     public WorkService fileName(String fileName) {
-        if (fileName != null && !fileName.trim().isEmpty()) {
+        if (fileName != null && fileName.trim().isEmpty() == false) {
             this.fileName = fileName.trim();
         }
         return this;

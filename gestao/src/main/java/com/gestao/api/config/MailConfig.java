@@ -24,11 +24,11 @@ public class MailConfig {
             @Value("${spring.mail.properties.mail.smtp.writetimeout:5000}") int writeTimeout
     ) {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
-        if (!host.isEmpty()) {
+        if (host.isEmpty() == false) {
             sender.setHost(host);
             if (port > 0) sender.setPort(port);
         }
-        if (!username.isEmpty()) {
+        if (username.isEmpty() == false) {
             sender.setUsername(username);
             sender.setPassword(password);
         }
