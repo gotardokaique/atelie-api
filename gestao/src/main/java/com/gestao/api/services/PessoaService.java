@@ -80,7 +80,8 @@ public class PessoaService {
         where.add("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario());
 
         if (filter != null) {
-            filter.applyTo(where);
+            // Converte o valor pelo tipo do campo (ex.: dataCadastro -> LocalDate, telefone -> String).
+            filter.withEntityClass(Pessoa.class).applyTo(where);
         }
 
         if (dataInicio != null && dataFim != null) {
