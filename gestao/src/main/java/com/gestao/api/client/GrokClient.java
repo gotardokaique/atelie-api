@@ -11,6 +11,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import com.gen.core.constants.FWConstante;
 import com.gestao.api.config.lia.properties.LiaProperties;
 
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
@@ -35,7 +36,7 @@ public class GrokClient {
         this.restClient = RestClient.builder()
                 .baseUrl(props.getBaseUrl())
                 .requestFactory(requestFactory)
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + props.getApiKey())
+                .defaultHeader(HttpHeaders.AUTHORIZATION, FWConstante.BEARER_PREFIX + props.getApiKey())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }

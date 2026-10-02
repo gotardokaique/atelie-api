@@ -11,6 +11,7 @@ import org.springframework.security.core.token.Token;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.gen.core.constants.FWConstante;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.QueryBuilder;
 import com.gen.core.db.TransactionDB;
@@ -59,7 +60,7 @@ public class RedefinirSenhaService {
 
         usuario.setSenha(this.passwordEncoder.encode(newPassword));
         trans.update(usuario);
-        sessionService.delete("user:session:" + usuario.getId());    }
+        sessionService.delete(FWConstante.sessionKey(usuario.getId()));    }
 
     private boolean isExpired(PasswordTokenPublicData publicData) {
         Instant createdAt = new Date(publicData.createAtTimestamp()).toInstant();

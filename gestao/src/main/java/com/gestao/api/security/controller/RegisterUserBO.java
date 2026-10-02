@@ -17,9 +17,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
 import com.gen.core.bo.EmailBO;
+import com.gen.core.constants.FWConstante;
 import com.gen.core.db.Condicao;
 import com.gen.core.db.DAOController;
 import com.gen.core.db.QueryBuilder;
@@ -243,19 +245,28 @@ public class RegisterUserBO {
 
         notificarAdminNovoUsuario(nome, email, ProviderUsuario.LOCAL);
 
-        return emitirAutenticacao(persistido, response);
+        return emitirAutenticacao(persistido, response, false);
     }
 
-    private ResponseEntity<?> emitirAutenticacao(Usuario usuario, HttpServletResponse response) throws Exception {
+    private ResponseEntity<?> emitirAutenticacao(Usuario usuario, HttpServletResponse response, boolean isApp) throws Exception {
         List<String> roles = Select.rolesDoUsuario(usuario.getId(), new DAOController(trans));
+        String jwt;
+        
+        if (isApp) {
+        	jwt = tokenService.generateToken(usuario, roles, jwtExpirationMs * 3);
+        	sessionService.put(FWConstante.appSessionKey(usuario.getId()), jwt, (jwtExpirationMs * 3 ) / 1000);
+        	// App usa só Bearer: remove cookie antigo, que teria prioridade sobre o header no TokenService.
+        	HttpUtils.removeCookie(response, FWConstante.AUTH_COOKIE_NAME, cookieDomain);
+        } else {
+        	jwt = tokenService.generateToken(usuario, roles);
+        	sessionService.put(FWConstante.sessionKey(usuario.getId()), jwt, jwtExpirationMs / 1000);
+        	HttpUtils.addSecureCookie(response, FWConstante.AUTH_COOKIE_NAME, jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
+        }
 
-        var jwt = tokenService.generateToken(usuario, roles);
-        sessionService.put("user:session:" + usuario.getId(), jwt, jwtExpirationMs / 1000);
-        HttpUtils.addSecureCookie(response, "auth_token", jwt, (int) (jwtExpirationMs / 1000), cookieDomain);
         return ResponseEntity.ok(new LoginResponseDTO(jwt));
     }
 
-    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> processarLogin(String emailRaw, String senha, HttpServletRequest request, HttpServletResponse response, boolean isApp) {
         String email = emailRaw.trim().toLowerCase();
 
         if (!REGEX_EMAIL.matcher(email).matches()) {
@@ -315,12 +326,12 @@ public class RegisterUserBO {
             resetTentativaEmail(email);
             resetTentativaIpEmail(email, clientIp);
 
-            ResponseEntity<?> resposta = emitirAutenticacao(user, response);
+            ResponseEntity<?> resposta = emitirAutenticacao(user, response, isApp);
 
             logger.info("Login bem-sucedido para {} (IP: {})", email, clientIp);
             return resposta;
 
-        } catch (BadCredentialsException | org.springframework.security.core.userdetails.UsernameNotFoundException e) {
+        } catch (BadCredentialsException | UsernameNotFoundException e) {
 
             // 4) Login falhou: incrementa as DUAS dimensões
             tentativaEmail.tentativas++;
@@ -449,7 +460,7 @@ public class RegisterUserBO {
             notificarAdminNovoUsuario(request.getNome(), email, ProviderUsuario.GOOGLE);
         }
 
-        return emitirAutenticacao(usuario, response);
+        return emitirAutenticacao(usuario, response, false);
     }
 
 

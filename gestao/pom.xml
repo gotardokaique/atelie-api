@@ -24,6 +24,9 @@
              email contêm acentos e emojis diretos, sem entities). -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- Versao publicada no registry. O profile "local" sobrescreve com a
+             versao do pom do gen-core no workspace (linka o projeto no Eclipse). -->
+        <gen-core.version>1.1.12</gen-core.version>
 
 	</properties>
 	<repositories>
@@ -159,7 +162,7 @@
 		<dependency>
 			<groupId>com.gen</groupId>
 			<artifactId>gen-core</artifactId>
-			<version>1.1.11</version>
+			<version>${gen-core.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>
@@ -222,4 +225,13 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>local</id>
+			<properties>
+				<gen-core.version>0.0.2-SNAPSHOT</gen-core.version>
+			</properties>
+		</profile>
+	</profiles>
 </project>

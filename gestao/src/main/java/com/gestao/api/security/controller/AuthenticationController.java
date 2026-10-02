@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import com.gen.core.api.AbstractController;
 import com.gen.core.api.EndpointMapping;
 import com.gen.core.api.MethodMapping;
+import com.gen.core.constants.FWConstante;
 import com.gen.core.context.UserContext;
 import com.gen.core.security.SessionService;
 import com.gen.core.utils.HttpUtils;
@@ -53,7 +54,7 @@ public class AuthenticationController extends AbstractController {
     @MethodMapping(path = "/login", type = RequestMethod.POST, isPublic = true)
     public ResponseEntity<?> login(@RequestBody @Valid LoginRequestDTO dto,
             HttpServletRequest request, HttpServletResponse response) {
-        return registerBO.processarLogin(dto.email(), dto.senha(), request, response);
+        return registerBO.processarLogin(dto.email(), dto.senha(), request, response, false);
     }
 
     @MethodMapping(path = "/google", type = RequestMethod.POST, isPublic = true)
@@ -125,7 +126,7 @@ public class AuthenticationController extends AbstractController {
         List<String> roles = SecurityContextHolder
                 .getContext().getAuthentication().getAuthorities().stream()
                 .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                .map(a -> a.startsWith("ROLE_") ? a.substring(5) : a)
+                .map(a -> a.startsWith(FWConstante.ROLE_PREFIX) ? a.substring(FWConstante.ROLE_PREFIX.length()) : a)
                 .toList();
 
         return ResponseEntity.ok(new UserMeDTO(user.getNome(), user.getEmail(),
@@ -137,12 +138,18 @@ public class AuthenticationController extends AbstractController {
     }
 
     @MethodMapping(path = "/logout", type = RequestMethod.POST)
-    public ResponseEntity<?> logout(HttpServletResponse response) {
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
         Usuario user = (Usuario) UserContext.getUsuarioAutenticado();
-        sessionService.delete("user:session:" + user.getId()); 
+
+        // Encerra só a sessão de quem pediu: sair do app não derruba o web (e vice-versa).
+        if (HttpUtils.isMobileClient(request)) {
+        	sessionService.delete(FWConstante.appSessionKey(user.getId()));
+        } else {
+        	sessionService.delete(FWConstante.sessionKey(user.getId()));
+        }
         
-        HttpUtils.removeCookie(response, "auth_token", cookieDomain);
-        HttpUtils.removeCookie(response, "session_revalidated", cookieDomain);
+        HttpUtils.removeCookie(response, FWConstante.AUTH_COOKIE_NAME, cookieDomain);
+        HttpUtils.removeCookie(response, FWConstante.SESSION_REVALIDATED_COOKIE, cookieDomain);
         
         return ResponseEntity.ok("Logout executado.");
     }
@@ -151,5 +158,10 @@ public class AuthenticationController extends AbstractController {
     public ResponseEntity<?> excluirConta() {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                 .body(java.util.Map.of("message", "Exclusão de conta em breve."));
+    }
+    
+    @MethodMapping(path = "/app/login", type = RequestMethod.POST, isPublic = true)
+    public ResponseEntity<?> appLogin(@RequestBody @Valid LoginRequestDTO dto, HttpServletRequest request, HttpServletResponse response) {
+        return registerBO.processarLogin(dto.email(), dto.senha(), request, response, true);
     }
 }
