@@ -23,6 +23,8 @@ import com.gen.core.db.PageResult;
 import com.gen.core.db.filter.FilterQuery;
 import com.gen.core.api.ApiResponse;
 import com.gen.core.security.exception.BusinessException;
+import com.gestao.api.controllers.DTOs.ServicoComClienteRequestDTO;
+import com.gestao.api.controllers.DTOs.ServicoComClienteResponseDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.entities.Servico;
@@ -46,6 +48,13 @@ public class ServicoController extends AbstractController {
         servicoService.criarServico(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.okMessage("Serviço criado com sucesso."));
+    }
+
+    @PostMapping("/com-cliente")
+    public ResponseEntity<ApiResponse<ServicoComClienteResponseDTO>> criarServicoComCliente(@RequestBody ServicoComClienteRequestDTO requestDTO) throws Exception {
+        ServicoComClienteResponseDTO criado = servicoService.criarServicoComCliente(requestDTO);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(criado, "Cliente e serviço cadastrados com sucesso."));
     }
 
     @GetMapping("/alertas-prazo")

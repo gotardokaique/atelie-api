@@ -41,6 +41,8 @@ import com.gestao.api.controllers.DTOs.NomeValorDTO;
 import com.gestao.api.controllers.DTOs.PessoaRankingDTO;
 import com.gestao.api.controllers.DTOs.ResumoFinanceiroDTO;
 import com.gestao.api.controllers.DTOs.ResumoPendenciasDTO;
+import com.gestao.api.controllers.DTOs.ServicoComClienteRequestDTO;
+import com.gestao.api.controllers.DTOs.ServicoComClienteResponseDTO;
 import com.gestao.api.controllers.DTOs.ServicoRequestDTO;
 import com.gestao.api.controllers.DTOs.ServicoResponseDTO;
 import com.gestao.api.controllers.DTOs.ServicosPorMesDTO;
@@ -69,16 +71,18 @@ public class ServicoService {
     private final DespesaService despesaService;
     private final ProdutoService produtoService;
     private final EstoqueBO estoqueBO;
+    private final PessoaService pessoaService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    public ServicoService(DAOController daoController, Clock clock, DespesaService despesaService, ProdutoService produtoService, EstoqueBO estoqueBO) {
+    public ServicoService(DAOController daoController, Clock clock, DespesaService despesaService, ProdutoService produtoService, EstoqueBO estoqueBO, PessoaService pessoaService) {
         this.daoController = daoController;
         this.clock = clock;
         this.despesaService = despesaService;
         this.produtoService = produtoService;
         this.estoqueBO = estoqueBO;
+        this.pessoaService = pessoaService;
     }
 
     @Transactional
@@ -88,6 +92,27 @@ public class ServicoService {
 
         if (requestDTO.pessoaId() != null) {
             pessoa = buscarPessoaById(requestDTO.pessoaId());
+        }
+
+        criarServicoPara(pessoa, requestDTO);
+    }
+
+    @Transactional
+    @CacheEvict(value = CACHE_SERVICOS_EM_ABERTO, key = "T(com.gestao.api.context.UserContext).getIdUsuario()")
+    public ServicoComClienteResponseDTO criarServicoComCliente(ServicoComClienteRequestDTO requestDTO) throws Exception {
+        if (requestDTO == null || requestDTO.cliente() == null || requestDTO.servico() == null) {
+            throw new BusinessException("Informe os dados do cliente e do serviço.");
+        }
+
+        Pessoa pessoa = pessoaService.criarPessoaEntity(requestDTO.cliente());
+        Servico servico = criarServicoPara(pessoa, requestDTO.servico());
+
+        return new ServicoComClienteResponseDTO(pessoa.getId(), servico.getId());
+    }
+
+    private Servico criarServicoPara(Pessoa pessoa, ServicoRequestDTO requestDTO) {
+        if (requestDTO.descricao() == null || requestDTO.descricao().isBlank()) {
+            throw new BusinessException("Descrição do serviço é obrigatória.");
         }
 
         Produto produto = null;
@@ -122,11 +147,13 @@ public class ServicoService {
 
         servico.setStatusPagamento(StatusPagamento.PENDENTE);
 
-        salvar(servico);
+        servico = salvar(servico);
 
         if (Boolean.TRUE.equals(requestDTO.geraDespesa()) && servico.getProduto() != null) {
             gerarDespesaEBaixarEstoque(servico, servico.getProduto());
         }
+
+        return servico;
     }
 
     private void gerarDespesaEBaixarEstoque(Servico servico, Produto produto) {

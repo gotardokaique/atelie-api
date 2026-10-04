@@ -25,10 +25,12 @@ import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
 import com.gestao.api.controllers.DTOs.ServicoHistoricoDTO;
+import com.gestao.api.controllers.DTOs.TelefoneDisponibilidadeDTO;
 import com.gestao.api.entities.Pessoa;
 import com.gestao.api.entities.Servico;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.StatusServico;
+import com.gestao.api.services.exceptions.TelefoneJaCadastradoException;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -51,6 +53,16 @@ public class PessoaService {
     @Transactional
     @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
     public void criarPessoa(PessoaDTO dto) throws Exception {
+        criarPessoaEntity(dto);
+    }
+
+    /** Valida (inclusive telefone duplicado), salva e devolve a pessoa persistida, com id. */
+    @Transactional
+    @CacheEvict(value = { "PESSOAS_TODAS", "PESSOAS_CLIENTES", "PESSOA_BY_ID" }, allEntries = true)
+    public Pessoa criarPessoaEntity(PessoaDTO dto) throws Exception {
+        if (dto == null) {
+            throw new BusinessException("Dados do cliente são obrigatórios.");
+        }
 
         String nomeLimpo = limparNome(dto.nome());
         String telefoneLimpo = limparTelefone(dto.telefone());
@@ -69,7 +81,25 @@ public class PessoaService {
         usuarioRef.setId(UserContext.getIdUsuario());
         pessoa.setUsuario(usuarioRef);
 
-        salvar(pessoa);
+        return salvar(pessoa);
+    }
+
+    // ===================== TELEFONE =====================
+
+    @Transactional(readOnly = true)
+    public TelefoneDisponibilidadeDTO verificarTelefone(String telefone) {
+        String telefoneLimpo = limparTelefone(telefone);
+        if (StringUtils.hasText(telefoneLimpo) == false) {
+            return new TelefoneDisponibilidadeDTO(true, null, null);
+        }
+
+        List<Pessoa> existentes = buscarPorTelefone(telefoneLimpo);
+        if (existentes.isEmpty()) {
+            return new TelefoneDisponibilidadeDTO(true, null, null);
+        }
+
+        Pessoa existente = existentes.get(0);
+        return new TelefoneDisponibilidadeDTO(false, existente.getId(), existente.getNome());
     }
 
     // ===================== LISTAR =====================
@@ -354,17 +384,20 @@ public class PessoaService {
     }
 
     private void verificarTelefoneExistente(String telefone, Long id) throws Exception {
-        List<Pessoa> existing = daoController
+        if (buscarPorTelefone(telefone).isEmpty() == false) {
+            throw new TelefoneJaCadastradoException();
+        }
+    }
+
+    private List<Pessoa> buscarPorTelefone(String telefone) {
+        return daoController
                 .select()
                 .from(Pessoa.class)
                 .join("usuario")
                 .where("usuario.id", Condicao.EQUAL, UserContext.getIdUsuario())
                 .where("telefone", Condicao.EQUAL, telefone)
+                .limit(1)
                 .list();
-
-        if (existing.isEmpty() == false) {
-            throw new BusinessException("Já existe um cliente cadastrado com este número de telefone.");
-        }
     }
 
     // ===================== SALVAR (INSERT / UPDATE) =====================

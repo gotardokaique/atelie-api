@@ -22,6 +22,7 @@ import com.gen.core.api.ApiResponse;
 import com.gestao.api.controllers.DTOs.ClienteDetalhesDTO;
 import com.gestao.api.controllers.DTOs.PessoaDTO;
 import com.gestao.api.controllers.DTOs.PessoaResumoDTO;
+import com.gestao.api.controllers.DTOs.TelefoneDisponibilidadeDTO;
 import com.gestao.api.services.PessoaService;
 
 @RestController
@@ -54,6 +55,11 @@ public class PessoaController extends AbstractController {
     @GetMapping("/clientes")
     public ResponseEntity<List<PessoaResumoDTO>> listarClientesDoUsuario() {
         return ResponseEntity.ok(pessoaService.listarClientesDoUsuario());
+    }
+
+    @GetMapping("/telefone-disponivel")
+    public ResponseEntity<TelefoneDisponibilidadeDTO> verificarTelefone(@RequestParam String telefone) {
+        return ResponseEntity.ok(pessoaService.verificarTelefone(telefone));
     }
 
     @GetMapping("/{id}")
