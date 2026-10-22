@@ -27,7 +27,9 @@ public class DispositivoPushController extends AbstractController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<Void>> registrar(@RequestBody @Valid DispositivoPushRequestDTO dto) {
-        dispositivoService.registrar(dto);
+        if (dispositivoService.registrar(dto) == false) {
+            return ResponseEntity.noContent().build();
+        }
         return ResponseEntity.ok(ApiResponse.okMessage("Aparelho registrado para notificações."));
     }
 
