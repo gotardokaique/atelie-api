@@ -5,5 +5,6 @@ public enum TipoNotificacao {
     PRAZO_AMANHA,
     PRAZO_HOJE,
     ATRASADO,
+    PAGAMENTO_PENDENTE,
     TESTE
 }

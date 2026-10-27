@@ -9,8 +9,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +29,7 @@ import com.gestao.api.repositories.DispositivoPushRepository;
 import com.gestao.api.services.PrazoNotificacaoDados.UsuarioResumo;
 import com.gestao.api.services.PrazoNotificacaoPlanner.Planejada;
 import com.gestao.api.services.PrazoNotificacaoPlanner.Preferencias;
+import com.gestao.api.services.PrazoNotificacaoPlanner.ServicoAPagar;
 import com.gestao.api.services.PrazoNotificacaoPlanner.ServicoPrazo;
 
 /**
@@ -43,6 +46,7 @@ public class PrazoNotificacaoJob {
     static final int HORA_FIM = 21;
     /** Margem para o atraso máximo (30 dias) somada à diferença de fuso. */
     private static final int DIAS_ATRAS_CARREGADOS = PrazoNotificacaoPlanner.ATRASO_MAXIMO_DIAS + 2;
+    private static final int DIAS_PAGAMENTO_CARREGADOS = PrazoNotificacaoPlanner.PAGAMENTO_MAXIMO_DIAS + 2;
 
     public record ResumoExecucao(int usuariosProcessados, int notificacoesCriadas, EnvioPushDTO push) {}
 
@@ -83,14 +87,15 @@ public class PrazoNotificacaoJob {
     /** {@code respeitarJanela=false} ignora horário e marcador do dia (disparo manual); o dedupe continua valendo. */
     public ResumoExecucao executar(Instant agora, boolean respeitarJanela) {
         Map<Long, List<ServicoPrazo>> servicos = dados.servicosAbertosPorUsuario(entregaDesde(agora));
-        Map<Long, Preferencias> preferencias = dados.preferencias(servicos.keySet());
+        Map<Long, List<ServicoAPagar>> aPagar = dados.servicosAPagarPorUsuario(finalizadoDesde(agora));
+        Set<Long> usuarios = usuariosComPendencias(servicos, aPagar);
+        Map<Long, Preferencias> preferencias = dados.preferencias(usuarios);
 
         int processados = 0;
         int criadas = 0;
         EnvioPushDTO push = EnvioPushDTO.vazio();
 
-        for (Map.Entry<Long, List<ServicoPrazo>> entrada : servicos.entrySet()) {
-            Long usuarioId = entrada.getKey();
+        for (Long usuarioId : usuarios) {
             Preferencias pref = preferencias.get(usuarioId);
             LocalDate hoje = PrazoNotificacaoPlanner.hojeDoUsuario(agora, pref);
             String marcador = "prazos:feito:" + usuarioId + ":" + hoje;
@@ -100,7 +105,8 @@ public class PrazoNotificacaoJob {
             }
 
             try {
-                List<Notificacao> novas = processor.processar(usuarioId, pref, entrada.getValue(), agora);
+                List<Notificacao> novas = processor.processar(usuarioId, pref,
+                        servicos.getOrDefault(usuarioId, List.of()), aPagar.getOrDefault(usuarioId, List.of()), agora);
                 push = push.somar(pushService.enviar(usuarioId, novas));
                 criadas += novas.size();
                 processados++;
@@ -120,18 +126,21 @@ public class PrazoNotificacaoJob {
     /** Dry-run: o que cada usuário receberia hoje, sem gravar nem enviar. Ignora a janela de horário. */
     public List<SimulacaoNotificacaoDTO> simular(Instant agora) {
         Map<Long, List<ServicoPrazo>> servicos = dados.servicosAbertosPorUsuario(entregaDesde(agora));
-        Map<Long, Preferencias> preferencias = dados.preferencias(servicos.keySet());
-        Map<Long, UsuarioResumo> usuarios = dados.usuarios(servicos.keySet());
+        Map<Long, List<ServicoAPagar>> aPagar = dados.servicosAPagarPorUsuario(finalizadoDesde(agora));
+        Set<Long> ids = usuariosComPendencias(servicos, aPagar);
+        Map<Long, Preferencias> preferencias = dados.preferencias(ids);
+        Map<Long, UsuarioResumo> usuarios = dados.usuarios(ids);
         Map<Long, Long> dispositivos = new HashMap<>();
-        if (servicos.isEmpty() == false) {
-            dispositivoRepository.contarAtivosPorUsuario(servicos.keySet())
+        if (ids.isEmpty() == false) {
+            dispositivoRepository.contarAtivosPorUsuario(ids)
                     .forEach(l -> dispositivos.put((Long) l[0], (Long) l[1]));
         }
 
         List<SimulacaoNotificacaoDTO> resultado = new ArrayList<>();
-        servicos.forEach((usuarioId, lista) -> {
+        ids.forEach(usuarioId -> {
             Preferencias pref = preferencias.get(usuarioId);
-            List<Planejada> planejadas = processor.simular(usuarioId, pref, lista, agora);
+            List<Planejada> planejadas = processor.simular(usuarioId, pref,
+                    servicos.getOrDefault(usuarioId, List.of()), aPagar.getOrDefault(usuarioId, List.of()), agora);
             if (planejadas.isEmpty()) {
                 return;
             }
@@ -170,6 +179,17 @@ public class PrazoNotificacaoJob {
     static boolean dentroDaJanela(Instant agora, Preferencias pref) {
         int hora = agora.atZone(pref.fuso()).getHour();
         return hora >= HORA_INICIO && hora < HORA_FIM;
+    }
+
+    private static Set<Long> usuariosComPendencias(Map<Long, List<ServicoPrazo>> servicos,
+            Map<Long, List<ServicoAPagar>> aPagar) {
+        Set<Long> ids = new LinkedHashSet<>(servicos.keySet());
+        ids.addAll(aPagar.keySet());
+        return ids;
+    }
+
+    private static LocalDate finalizadoDesde(Instant agora) {
+        return agora.atZone(ZoneOffset.UTC).toLocalDate().minusDays(DIAS_PAGAMENTO_CARREGADOS);
     }
 
     private static LocalDate entregaDesde(Instant agora) {
