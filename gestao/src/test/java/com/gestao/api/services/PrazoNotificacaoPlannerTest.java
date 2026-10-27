@@ -25,6 +25,7 @@ import com.gestao.api.enuns.StatusServico;
 import com.gestao.api.enuns.TipoNotificacao;
 import com.gestao.api.services.PrazoNotificacaoPlanner.Planejada;
 import com.gestao.api.services.PrazoNotificacaoPlanner.Preferencias;
+import com.gestao.api.services.PrazoNotificacaoPlanner.ServicoAPagar;
 import com.gestao.api.services.PrazoNotificacaoPlanner.ServicoPrazo;
 
 class PrazoNotificacaoPlannerTest {
@@ -323,6 +324,82 @@ class PrazoNotificacaoPlannerTest {
             Preferencias pv = new Preferencias(true, 3, PORTO_VELHO);
             assertThat(PrazoNotificacaoJob.dentroDaJanela(Instant.parse("2026-10-02T11:00:00Z"), pv)).isFalse();
             assertThat(PrazoNotificacaoJob.dentroDaJanela(Instant.parse("2026-10-02T12:00:00Z"), pv)).isTrue();
+        }
+    }
+
+    @Nested
+    class PagamentoPendente {
+
+        private ServicoAPagar aPagar(long id, int diasDesdeFinalizacao) {
+            return new ServicoAPagar(id, "Vestido de festa", "Maria Souza", new java.math.BigDecimal("150.00"),
+                    HOJE.minusDays(diasDesdeFinalizacao));
+        }
+
+        private List<Planejada> planejarPagamentos(Preferencias pref, ServicoAPagar... servicos) {
+            return planner.planejarPagamentos(USUARIO, pref, Arrays.asList(servicos), MEIO_DIA_SP);
+        }
+
+        @Test
+        void avisaNoPrimeiroDiaEDepoisACadaSeteDiasAteTrinta() {
+            List<Integer> avisados = IntStream.rangeClosed(0, 40)
+                    .filter(d -> planejarPagamentos(pref(3), aPagar(1, d)).size() == 1)
+                    .boxed()
+                    .toList();
+
+            assertThat(avisados).containsExactly(1, 8, 15, 22, 29);
+        }
+
+        @Test
+        void textosDoAvisoIndividual() {
+            Planejada p = planejarPagamentos(pref(3), aPagar(9, 8)).get(0);
+
+            assertThat(p.tipo()).isEqualTo(TipoNotificacao.PAGAMENTO_PENDENTE);
+            assertThat(p.titulo()).isEqualTo("Finalizado há 8 dias e sem pagamento");
+            assertThat(p.descricao()).contains("Vestido de festa", "Maria Souza", "finalizado em 24/09");
+            assertThat(p.servicoId()).isEqualTo(9L);
+            assertThat(p.chaveDedupe()).isEqualTo("PAGAMENTO_PENDENTE:S9:D8");
+        }
+
+        @Test
+        void maisDeTresViramUmResumo() {
+            List<Planejada> r = planejarPagamentos(pref(3), aPagar(1, 1), aPagar(2, 1), aPagar(3, 1), aPagar(4, 1));
+
+            assertThat(r).hasSize(1);
+            assertThat(r.get(0).quantidade()).isEqualTo(4);
+            assertThat(r.get(0).servicoId()).isNull();
+            assertThat(r.get(0).titulo()).isEqualTo("4 serviços finalizados aguardando pagamento");
+            assertThat(r.get(0).chaveDedupe()).isEqualTo("RESUMO:PAGAMENTO_PENDENTE:U7:2026-10-02");
+        }
+
+        @Test
+        void alertaDesligadoNaoGeraNada() {
+            Preferencias desligado = new Preferencias(true, 3, SAO_PAULO, false);
+            assertThat(planejarPagamentos(desligado, aPagar(1, 1))).isEmpty();
+        }
+
+        @Test
+        void alertaDePrazoDesligadoNaoDesligaOPagamento() {
+            Preferencias semPrazo = new Preferencias(false, 3, SAO_PAULO, true);
+            assertThat(planejarPagamentos(semPrazo, aPagar(1, 1))).hasSize(1);
+        }
+
+        @Test
+        void semDataDeFinalizacaoNaoAvisa() {
+            ServicoAPagar semData = new ServicoAPagar(1L, "Vestido", null, null, null);
+            assertThat(planejarPagamentos(pref(3), semData)).isEmpty();
+        }
+
+        @Test
+        void processarUmaSegundaVezNaoDuplica() {
+            InMemoryStore store = new InMemoryStore();
+            PrazoNotificacaoProcessor processor = new PrazoNotificacaoProcessor(planner, store);
+
+            List<Notificacao> primeira = processor.processar(USUARIO, pref(3), List.of(), List.of(aPagar(1, 1)), MEIO_DIA_SP);
+            List<Notificacao> segunda = processor.processar(USUARIO, pref(3), List.of(), List.of(aPagar(1, 1)),
+                    MEIO_DIA_SP.plusSeconds(3600));
+
+            assertThat(primeira).hasSize(1);
+            assertThat(segunda).isEmpty();
         }
     }
 

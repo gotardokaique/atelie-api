@@ -58,7 +58,7 @@ public class AuthenticationController extends AbstractController {
     }
 
     @MethodMapping(path = "/google", type = RequestMethod.POST, isPublic = true)
-    public ResponseEntity<?> loginComGoogle(@RequestBody @Valid GoogleAuthRequest dto,
+    public ResponseEntity<?> loginComGoogle(@RequestBody(required = false) GoogleAuthRequest dto,
             HttpServletResponse response) throws Exception {
         return registerBO.autenticarComGoogle(dto, response);
     }

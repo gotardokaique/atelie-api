@@ -1,5 +1,7 @@
 package com.gestao.api.services;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -10,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -29,18 +32,30 @@ public class PrazoNotificacaoPlanner {
     public static final int MAXIMO_INDIVIDUAIS_POR_TIPO = 3;
     public static final int ATRASO_MAXIMO_DIAS = 30;
     public static final int ATRASO_INTERVALO_DIAS = 7;
+    public static final int PAGAMENTO_MAXIMO_DIAS = 30;
+    public static final int PAGAMENTO_INTERVALO_DIAS = 7;
 
     private static final int LIMITE_TITULO = 120;
     private static final int LIMITE_DESCRICAO = 255;
     private static final DateTimeFormatter DIA_MES = DateTimeFormatter.ofPattern("dd/MM");
 
-    public record Preferencias(boolean notificarPrazo, int diasAntecedencia, ZoneId fuso) {
+    public record Preferencias(boolean notificarPrazo, int diasAntecedencia, ZoneId fuso, boolean notificarPagamento) {
+
+        public Preferencias(boolean notificarPrazo, int diasAntecedencia, ZoneId fuso) {
+            this(notificarPrazo, diasAntecedencia, fuso, true);
+        }
 
         public static Preferencias de(Boolean notificarPrazo, Integer diasAntecedencia, String fuso) {
+            return de(notificarPrazo, diasAntecedencia, fuso, null);
+        }
+
+        public static Preferencias de(Boolean notificarPrazo, Integer diasAntecedencia, String fuso,
+                Boolean notificarPagamento) {
             return new Preferencias(
                     Boolean.FALSE.equals(notificarPrazo) == false,
                     diasAntecedencia == null ? 3 : diasAntecedencia,
-                    resolverFuso(fuso));
+                    resolverFuso(fuso),
+                    Boolean.FALSE.equals(notificarPagamento) == false);
         }
     }
 
@@ -50,6 +65,15 @@ public class PrazoNotificacaoPlanner {
             String cliente,
             LocalDate entrega,
             StatusServico status,
+            LocalDate dataFinalizacao) {
+    }
+
+    /** Serviço finalizado cujo pagamento ainda está pendente. */
+    public record ServicoAPagar(
+            Long id,
+            String descricao,
+            String cliente,
+            BigDecimal valor,
             LocalDate dataFinalizacao) {
     }
 
@@ -108,6 +132,67 @@ public class PrazoNotificacaoPlanner {
         return planejadas;
     }
 
+    /**
+     * Finalizado e sem pagamento: avisa no 1º dia depois de finalizar e depois a cada 7 dias,
+     * só até 30 dias (dias 1, 8, 15, 22 e 29 = no máximo 5 avisos por serviço).
+     */
+    public List<Planejada> planejarPagamentos(Long usuarioId, Preferencias preferencias, List<ServicoAPagar> servicos,
+            Instant agora) {
+        if (preferencias.notificarPagamento() == false) {
+            return List.of();
+        }
+
+        LocalDate hoje = hojeDoUsuario(agora, preferencias);
+        List<ServicoAPagar> devidos = new ArrayList<>();
+        for (ServicoAPagar servico : servicos) {
+            if (servico.dataFinalizacao() != null
+                    && deveCobrar(ChronoUnit.DAYS.between(servico.dataFinalizacao(), hoje))) {
+                devidos.add(servico);
+            }
+        }
+        if (devidos.isEmpty()) {
+            return List.of();
+        }
+
+        devidos.sort(Comparator.comparing(ServicoAPagar::dataFinalizacao).thenComparing(ServicoAPagar::id));
+        if (devidos.size() > MAXIMO_INDIVIDUAIS_POR_TIPO) {
+            int quantidade = devidos.size();
+            String chave = "RESUMO:" + TipoNotificacao.PAGAMENTO_PENDENTE + ":U" + usuarioId + ":" + hoje;
+            return List.of(new Planejada(TipoNotificacao.PAGAMENTO_PENDENTE,
+                    quantidade + " serviços finalizados aguardando pagamento", "Toque para ver a lista", null, hoje,
+                    quantidade, chave));
+        }
+
+        List<Planejada> planejadas = new ArrayList<>();
+        devidos.forEach(s -> planejadas.add(individualPagamento(s, hoje)));
+        return planejadas;
+    }
+
+    static boolean deveCobrar(long diasDesdeFinalizacao) {
+        return diasDesdeFinalizacao >= 1
+                && diasDesdeFinalizacao <= PAGAMENTO_MAXIMO_DIAS
+                && (diasDesdeFinalizacao - 1) % PAGAMENTO_INTERVALO_DIAS == 0;
+    }
+
+    private static Planejada individualPagamento(ServicoAPagar s, LocalDate hoje) {
+        long dias = ChronoUnit.DAYS.between(s.dataFinalizacao(), hoje);
+
+        StringJoiner descricao = new StringJoiner(" · ");
+        descricao.add(nomeDoServico(s.id(), s.descricao()));
+        if (s.cliente() != null && s.cliente().isBlank() == false) {
+            descricao.add(s.cliente().trim());
+        }
+        if (s.valor() != null && s.valor().signum() > 0) {
+            descricao.add(NumberFormat.getCurrencyInstance(Locale.of("pt", "BR")).format(s.valor()));
+        }
+        descricao.add("finalizado em " + DIA_MES.format(s.dataFinalizacao()));
+
+        String chave = TipoNotificacao.PAGAMENTO_PENDENTE + ":S" + s.id() + ":D" + dias;
+        return new Planejada(TipoNotificacao.PAGAMENTO_PENDENTE,
+                limitar("Finalizado há " + dias(dias) + " e sem pagamento", LIMITE_TITULO),
+                limitar(descricao.toString(), LIMITE_DESCRICAO), s.id(), s.dataFinalizacao(), 1, chave);
+    }
+
     static boolean emAberto(ServicoPrazo servico) {
         return servico.entrega() != null
                 && servico.dataFinalizacao() == null
@@ -146,6 +231,7 @@ public class PrazoNotificacaoPlanner {
             case PRAZO_AMANHA -> "Entrega amanhã";
             case PRAZO_HOJE -> "Entrega hoje";
             case ATRASADO -> "Entrega atrasada há " + dias(-faltam);
+            case PAGAMENTO_PENDENTE -> "Pagamento pendente";
             case TESTE -> "Teste de notificação";
         };
 
@@ -177,6 +263,7 @@ public class PrazoNotificacaoPlanner {
             case PRAZO_AMANHA -> quantidade + " serviços vencem amanhã";
             case PRAZO_HOJE -> quantidade + " serviços vencem hoje";
             case ATRASADO -> quantidade + " serviços estão atrasados";
+            case PAGAMENTO_PENDENTE -> quantidade + " serviços aguardando pagamento";
             case TESTE -> quantidade + " notificações de teste";
         };
 
@@ -186,10 +273,14 @@ public class PrazoNotificacaoPlanner {
     }
 
     private static String nomeDoServico(ServicoPrazo s) {
-        if (s.descricao() != null && s.descricao().isBlank() == false) {
-            return s.descricao().trim();
+        return nomeDoServico(s.id(), s.descricao());
+    }
+
+    private static String nomeDoServico(Long id, String descricao) {
+        if (descricao != null && descricao.isBlank() == false) {
+            return descricao.trim();
         }
-        return "Serviço #" + s.id();
+        return "Serviço #" + id;
     }
 
     private static String dias(long n) {

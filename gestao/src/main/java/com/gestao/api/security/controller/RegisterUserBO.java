@@ -18,6 +18,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import com.gen.core.bo.EmailBO;
@@ -30,12 +31,13 @@ import com.gen.core.security.SessionService;
 import com.gen.core.security.TokenService;
 import com.gen.core.security.exception.BusinessException;
 import com.gen.core.utils.HttpUtils;
-import com.gen.core.utils.StringEncryptUtils;
 import com.gestao.api.bo.TemplateEmailStr;
 import com.gestao.api.controllers.DTOs.GoogleAuthRequest;
 import com.gestao.api.controllers.DTOs.LoginResponseDTO;
 import com.gestao.api.entities.Usuario;
 import com.gestao.api.enuns.ProviderUsuario;
+import com.gestao.api.security.google.GoogleIdentity;
+import com.gestao.api.security.google.GoogleTokenValidator;
 import com.gestao.api.security.redefinir.RedefinirSenhaService;
 import com.gestao.api.select.Select;
 
@@ -60,7 +62,10 @@ public class RegisterUserBO {
     private RedefinirSenhaService redefinirSenhaService;
 
     @Autowired
-    private StringEncryptUtils stringEncryptUtils;
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private GoogleTokenValidator googleTokenValidator;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -410,57 +415,124 @@ public class RegisterUserBO {
 
     public ResponseEntity<?> autenticarComGoogle(GoogleAuthRequest request, HttpServletResponse response)
             throws Exception {
-        String email = request.getEmail().trim().toLowerCase();
-
-        // 1. Buscar por googleId
-        Usuario usuario = null;
-        try {
-            usuario = new QueryBuilder(trans).select()
-                    .from(Usuario.class)
-                    .where("googleId", Condicao.EQUAL, request.getGoogleId())
-                    .one();
-        } catch (Exception ignorado) {
-            // não encontrado por googleId
+        // Identidade vem SEMPRE do ID token validado (assinatura, iss, aud, exp, email_verified), nunca do corpo.
+        String idToken = request == null ? null : request.getIdToken();
+        GoogleIdentity identidade = googleTokenValidator.validar(idToken).orElse(null);
+        if (identidade == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Não foi possível autenticar com o Google."));
         }
 
+        String email = identidade.email();
+
+        // 1. Buscar por sub (googleId)
+        Usuario usuario = buscarUsuarioPorGoogleId(identidade.sub());
+
         if (usuario == null) {
-            // 2. Buscar por email
-            Usuario porEmail = null;
-            try {
-                porEmail = new QueryBuilder(trans).select()
-                        .from(Usuario.class)
-                        .where("email", Condicao.EQUAL, email)
-                        .one();
-            } catch (Exception ignorado) {
-                // não encontrado por email
-            }
+            // 2. Buscar por email (email_verified já foi exigido na validação do token)
+            Usuario porEmail = buscarUsuarioPorEmail(email);
 
             if (porEmail != null) {
-                // 3. Conta LOCAL com mesmo email — rejeitar
-                throw new BusinessException("Este email já está cadastrado com senha. Faça login com email e senha.");
+                // 3. Conta existente com o mesmo email: vincula o sub, a menos que já esteja
+                // vinculada a outra conta Google. O provider não muda, para não bloquear o login com senha.
+                boolean vinculadaAOutroGoogle = porEmail.getGoogleId() != null
+                        && porEmail.getGoogleId().isBlank() == false
+                        && porEmail.getGoogleId().equals(identidade.sub()) == false;
+                if (vinculadaAOutroGoogle) {
+                    logger.warn("[SECURITY] Login Google rejeitado: conta já vinculada a outro googleId.");
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(Map.of("message", "Não foi possível autenticar com o Google."));
+                }
+
+                porEmail.setGoogleId(identidade.sub());
+                if (porEmail.getFoto() == null || porEmail.getFoto().isBlank()) {
+                    porEmail.setFoto(identidade.foto());
+                }
+                // Quem cadastrou esse e-mail com senha (sem verificação) perde o acesso: senha trocada por uma
+                // aleatória e sessões encerradas. Tokens de reset pendentes deixam de valer sozinhos, pois
+                // são assinados com o hash da senha. Para voltar a usar senha: "Esqueci minha senha".
+                porEmail.setSenha(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+                trans.update(porEmail);
+                sessionService.delete(FWConstante.sessionKey(porEmail.getId()));
+                sessionService.delete(FWConstante.appSessionKey(porEmail.getId()));
+                logger.info("[SECURITY] Conta id={} vinculada ao login Google: senha anterior invalidada e sessões encerradas.",
+                        porEmail.getId());
+                notificarContaVinculadaAoGoogle(porEmail.getNome(), email);
+                usuario = porEmail;
+            } else {
+                // 4. Criar novo usuário Google
+                String nome = (identidade.nome() == null || identidade.nome().isBlank())
+                        ? email.substring(0, email.indexOf('@'))
+                        : identidade.nome();
+
+                var novoUsuario = new Usuario();
+                novoUsuario.setEmail(email);
+                novoUsuario.setNome(nome);
+                novoUsuario.setGoogleId(identidade.sub());
+                novoUsuario.setFoto(identidade.foto());
+                novoUsuario.setProvider(ProviderUsuario.GOOGLE);
+                // Senha aleatória: conta Google não tem senha utilizável (nada derivado do sub).
+                novoUsuario.setSenha(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+                novoUsuario.setAtivo(true);
+                trans.insert(novoUsuario);
+
+                // Re-fetch para garantir ID gerado pelo banco
+                usuario = buscarUsuarioPorGoogleId(identidade.sub());
+
+                // Notifica o admin sobre o novo cadastro via Google.
+                notificarAdminNovoUsuario(nome, email, ProviderUsuario.GOOGLE);
             }
+        }
 
-            // 4. Criar novo usuário Google
-            var novoUsuario = new Usuario();
-            novoUsuario.setEmail(email);
-            novoUsuario.setNome(request.getNome());
-            novoUsuario.setGoogleId(request.getGoogleId());
-            novoUsuario.setProvider(ProviderUsuario.GOOGLE);
-            novoUsuario.setSenha(stringEncryptUtils.encrypt(request.getGoogleId()));
-            novoUsuario.setAtivo(true);
-            trans.insert(novoUsuario);
-
-            // Re-fetch para garantir ID gerado pelo banco
-            usuario = new QueryBuilder(trans).select()
-                    .from(Usuario.class)
-                    .where("googleId", Condicao.EQUAL, request.getGoogleId())
-                    .one();
-
-            // Notifica o admin sobre o novo cadastro via Google.
-            notificarAdminNovoUsuario(request.getNome(), email, ProviderUsuario.GOOGLE);
+        if (usuario == null || usuario.isEnabled() == false) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Não foi possível autenticar com o Google."));
         }
 
         return emitirAutenticacao(usuario, response, false);
+    }
+
+    // Aviso best-effort: roda em outra thread para que SMTP lento ou indisponível nunca bloqueie o login.
+    private void notificarContaVinculadaAoGoogle(String nome, String email) {
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                String saudacao = (nome != null && nome.isBlank() == false)
+                        ? ", " + org.springframework.web.util.HtmlUtils.htmlEscape(nome) : "";
+                String html = TemplateEmailStr.montar(TemplateEmailStr.CONTA_VINCULADA_GOOGLE, Map.of(
+                        "saudacao", saudacao,
+                        "ano", String.valueOf(java.time.Year.now().getValue())
+                ));
+
+                emailBO.criar().remetente().destinatario(email)
+                        .titulo("Conta vinculada ao Google — Gestão Ateliê")
+                        .mensagem(html)
+                        .enviar();
+            } catch (Exception e) {
+                logger.warn("Falha ao enviar aviso de vinculação com o Google: {}", e.getMessage());
+            }
+        });
+    }
+
+    private Usuario buscarUsuarioPorGoogleId(String googleId) {
+        try {
+            return new QueryBuilder(trans).select()
+                    .from(Usuario.class)
+                    .where("googleId", Condicao.EQUAL, googleId)
+                    .one();
+        } catch (Exception ignorado) {
+            return null;
+        }
+    }
+
+    private Usuario buscarUsuarioPorEmail(String email) {
+        try {
+            return new QueryBuilder(trans).select()
+                    .from(Usuario.class)
+                    .where("email", Condicao.EQUAL, email)
+                    .one();
+        } catch (Exception ignorado) {
+            return null;
+        }
     }
 
 

@@ -187,4 +187,56 @@ public final class TemplateEmailStr {
 
         "</td></tr></table>" +
         "</body></html>";
+
+    // =========================================================================
+    // CONTA VINCULADA AO GOOGLE (aviso ao usuário)
+    // Placeholders: #saudacao# (já escapada, ex.: ", Maria" ou vazio), #ano#
+    // =========================================================================
+    public static final String CONTA_VINCULADA_GOOGLE =
+        "<!DOCTYPE html>" +
+        "<html lang='pt-BR'><head><meta charset='UTF-8'>" +
+        "<meta name='viewport' content='width=device-width,initial-scale=1.0'>" +
+        "<title>Conta vinculada ao Google</title></head>" +
+        "<body style='margin:0;padding:0;background-color:#f0ece6;font-family:Helvetica Neue,Arial,sans-serif;'>" +
+
+        "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'" +
+        " style='background-color:#f0ece6;padding:48px 16px;'>" +
+        "<tr><td align='center'>" +
+
+        "<table role='presentation' cellpadding='0' cellspacing='0' border='0'" +
+        " style='width:100%;max-width:560px;background-color:#ffffff;" +
+        "border-radius:8px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.10);'>" +
+
+        // HEADER
+        "<tr><td style='background-color:#111111;padding:38px 48px 34px;text-align:center;'>" +
+        "<p style='margin:0 0 8px 0;font-size:10px;letter-spacing:5px;color:#b8956a;" +
+        "text-transform:uppercase;font-weight:600;'>Gestão Ateliê</p>" +
+        "<h1 style='margin:0;color:#ffffff;font-size:24px;font-weight:300;" +
+        "letter-spacing:3px;text-transform:uppercase;'>Conta vinculada</h1>" +
+        "<div style='width:36px;height:2px;background-color:#b8956a;margin:14px auto 0;'></div>" +
+        "</td></tr>" +
+
+        // BODY
+        "<tr><td style='padding:42px 48px 36px;'>" +
+        "<p style='margin:0 0 16px;color:#333333;font-size:15px;line-height:1.7;'>Olá#saudacao#,</p>" +
+        "<p style='margin:0 0 16px;color:#333333;font-size:15px;line-height:1.7;'>" +
+        "Sua conta foi vinculada ao login com Google. Se quiser voltar a usar senha, " +
+        "use &quot;Esqueci minha senha&quot;.</p>" +
+        "<p style='margin:0;color:#777777;font-size:13px;line-height:1.7;'>" +
+        "Por segurança, a senha anterior foi desativada e as sessões abertas foram encerradas. " +
+        "Se não foi você, redefina sua senha e entre em contato com o suporte.</p>" +
+        "</td></tr>" +
+
+        // FOOTER
+        "<tr><td style='background-color:#111111;padding:24px 48px;text-align:center;'>" +
+        "<p style='margin:0 0 6px;color:#b8956a;font-size:10px;letter-spacing:3px;" +
+        "text-transform:uppercase;font-weight:500;'>Gestão Ateliê</p>" +
+        "<p style='margin:0;color:#555555;font-size:11px;line-height:1.7;'>" +
+        "© #ano# Todos os direitos reservados &nbsp;·&nbsp; Notificação automática</p>" +
+        "</td></tr>" +
+
+        "</table>" +
+
+        "</td></tr></table>" +
+        "</body></html>";
 }
