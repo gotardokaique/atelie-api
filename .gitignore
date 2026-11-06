@@ -32,3 +32,12 @@
 Thumbs.db
 
 src/main/resources/
+
+# Saída de build (Eclipse/Maven)
+bin/
+target/
+
+# Segredos locais e workspace do Eclipse
+config.properties
+**/config.properties
+.metadata/

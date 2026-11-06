@@ -8,7 +8,11 @@ public record AtelieDTO(
         String endereco,
         String cnpjCpf,
         String contatoPublico,
-        String horarioFuncionamento
+        String horarioFuncionamento,
+        String dataAberturaMei,
+        String nomeResponsavel,
+        String cidade,
+        String uf
 ) {
 
     public static AtelieDTO refactor(Atelie a) {
@@ -18,7 +22,11 @@ public record AtelieDTO(
                 a.getEndereco(),
                 a.getCnpjCpf(),
                 a.getContatoPublico(),
-                a.getHorarioFuncionamento()
+                a.getHorarioFuncionamento(),
+                a.getDataAberturaMei() != null ? a.getDataAberturaMei().toString() : null,
+                a.getNomeResponsavel(),
+                a.getCidade(),
+                a.getUf()
         );
     }
 }

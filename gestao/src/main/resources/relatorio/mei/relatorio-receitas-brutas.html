@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Relatório Mensal das Receitas Brutas · {{competenciaCurta}}</title>
+<style>
+@page {
+  size: A4;
+  margin: 18mm 19mm 22mm 19mm;
+  @bottom-center {
+    content: element(rodape);
+    vertical-align: top;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 9pt;
+  font-weight: 400;
+  line-height: 1.35;
+  color: #111111;
+}
+
+table { border-collapse: collapse; width: 100%; }
+td { padding: 0; vertical-align: top; }
+
+.rotulo {
+  font-size: 7pt;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6B6B6B;
+}
+
+.rodape {
+  position: running(rodape);
+  width: 100%;
+  border-top: 0.5pt solid #DADADA;
+  padding-top: 2.5mm;
+  font-size: 7pt;
+  color: #6B6B6B;
+}
+.rodape td.direita { text-align: right; }
+.pagina::after { content: counter(page); }
+.paginas::after { content: counter(pages); }
+
+.topo td { vertical-align: bottom; }
+.marca-logo { width: 16mm; padding-right: 3mm; }
+.marca-logo img { max-width: 16mm; max-height: 12mm; }
+.marca-nome { font-size: 11pt; font-weight: 600; }
+.topo .competencia { text-align: right; }
+.competencia-valor { font-size: 16pt; font-weight: 600; line-height: 1.15; margin-top: 1mm; }
+.documento { font-size: 8pt; color: #6B6B6B; margin-top: 1mm; }
+.selo {
+  display: inline-block;
+  margin-top: 2.5mm;
+  padding: 1mm 3mm;
+  border: 0.75pt solid #111111;
+  border-radius: 8pt;
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.titulo { margin-top: 6mm; padding-top: 5mm; border-top: 0.5pt solid #DADADA; }
+.titulo h1 { margin: 0; font-size: 14pt; font-weight: 600; }
+.titulo p { margin: 1.5mm 0 0 0; font-size: 8pt; color: #6B6B6B; }
+
+.identificacao { margin-top: 6mm; }
+.identificacao td { padding-right: 4mm; }
+.identificacao .valor { font-size: 10pt; margin-top: 1mm; }
+
+.destaque {
+  margin-top: 7mm;
+  padding: 1mm 0 1mm 4mm;
+  border-left: 2pt solid #111111;
+}
+.destaque-valor { font-size: 23pt; font-weight: 600; line-height: 1.1; margin-top: 1.5mm; }
+
+.receitas { margin-top: 4mm; }
+.receitas td { padding-top: 1.25mm; padding-bottom: 1.25mm; font-size: 9pt; }
+.receitas .numeral { width: 10mm; color: #6B6B6B; }
+.receitas .valor { width: 36mm; text-align: right; white-space: nowrap; }
+.receitas .zero { color: #B4B4B4; }
+.receitas tr.secao td {
+  padding-top: 4.5mm;
+  padding-bottom: 1.2mm;
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 0.5pt solid #DADADA;
+}
+.receitas tr.subtotal td { font-weight: 600; border-top: 0.5pt solid #DADADA; }
+.receitas tr.subtotal td.numeral { color: #111111; }
+.receitas tr.total td {
+  padding-top: 3mm;
+  font-size: 11pt;
+  font-weight: 600;
+  color: #111111;
+  border-top: 1.2pt solid #111111;
+}
+.receitas tr.espaco-total td { padding: 0; height: 3mm; }
+
+.assinatura { margin-top: 9mm; }
+.assinatura .local { width: 56%; padding-right: 8mm; }
+.assinatura .local .valor { font-size: 10pt; margin-top: 1mm; white-space: nowrap; }
+.assinatura .linha { padding-top: 10mm; }
+.assinatura .traco { border-top: 0.75pt solid #111111; padding-top: 1.5mm; text-align: center; }
+.assinatura .nome { font-size: 10pt; }
+.assinatura .traco .rotulo { margin-top: 0.8mm; }
+
+.anexos { margin-top: 7mm; padding-top: 4mm; border-top: 0.5pt solid #DADADA; }
+.anexos table { margin-top: 2.5mm; }
+.anexos td { padding-bottom: 2mm; font-size: 8.5pt; }
+.anexos td.caixa { width: 6mm; padding-top: 0.6mm; }
+.anexos .quadrado { display: inline-block; width: 3mm; height: 3mm; border: 0.75pt solid #111111; }
+</style>
+</head>
+<body>
+
+<div class="rodape">
+  <table>
+    <tr>
+      <td class="direita">Competência {{competenciaCurta}} · Página <span class="pagina"></span> de <span class="paginas"></span></td>
+    </tr>
+  </table>
+</div>
+
+<table class="topo">
+  <tr>
+    <td>{{marca}}</td>
+    <td class="competencia">
+      <div class="rotulo">Competência</div>
+      <div class="competencia-valor">{{competenciaExtenso}}</div>
+      <div class="documento">Documento nº {{documento}}</div>
+      {{selo}}
+    </td>
+  </tr>
+</table>
+
+<div class="titulo">
+  <h1>Relatório Mensal das Receitas Brutas</h1>
+  <p>Microempreendedor Individual · Resolução CGSN nº 140/2018, Anexo X</p>
+</div>
+
+<table class="identificacao">
+  <tr>
+    <td style="width: 27%;">
+      <div class="rotulo">CNPJ</div>
+      <div class="valor">{{cnpj}}</div>
+    </td>
+    <td style="width: 43%;">
+      <div class="rotulo">Empreendedor individual</div>
+      <div class="valor">{{empreendedor}}</div>
+    </td>
+    <td style="width: 30%;">
+      <div class="rotulo">Período de apuração</div>
+      <div class="valor">{{periodo}}</div>
+    </td>
+  </tr>
+</table>
+
+<div class="destaque">
+  <div class="rotulo">Total geral das receitas brutas no mês</div>
+  <div class="destaque-valor">{{totalDestaque}}</div>
+</div>
+
+<table class="receitas">
+  <tr class="secao"><td colspan="3">Receita bruta mensal – Revenda de mercadorias (comércio)</td></tr>
+  <tr>
+    <td class="numeral">I</td>
+    <td>Revenda de mercadorias com dispensa de emissão de documento fiscal</td>
+    <td class="valor {{classeI}}">{{valorI}}</td>
+  </tr>
+  <tr>
+    <td class="numeral">II</td>
+    <td>Revenda de mercadorias com documento fiscal emitido</td>
+    <td class="valor {{classeII}}">{{valorII}}</td>
+  </tr>
+  <tr class="subtotal">
+    <td class="numeral">III</td>
+    <td>Total das receitas com revenda de mercadorias (I + II)</td>
+    <td class="valor {{classeIII}}">{{valorIII}}</td>
+  </tr>
+
+  <tr class="secao"><td colspan="3">Receita bruta mensal – Venda de produtos industrializados (indústria)</td></tr>
+  <tr>
+    <td class="numeral">IV</td>
+    <td>Venda de produtos industrializados com dispensa de emissão de documento fiscal</td>
+    <td class="valor {{classeIV}}">{{valorIV}}</td>
+  </tr>
+  <tr>
+    <td class="numeral">V</td>
+    <td>Venda de produtos industrializados com documento fiscal emitido</td>
+    <td class="valor {{classeV}}">{{valorV}}</td>
+  </tr>
+  <tr class="subtotal">
+    <td class="numeral">VI</td>
+    <td>Total das receitas com venda de produtos industrializados (IV + V)</td>
+    <td class="valor {{classeVI}}">{{valorVI}}</td>
+  </tr>
+
+  <tr class="secao"><td colspan="3">Receita bruta mensal – Prestação de serviços</td></tr>
+  <tr>
+    <td class="numeral">VII</td>
+    <td>Receita com prestação de serviços com dispensa de emissão de documento fiscal</td>
+    <td class="valor {{classeVII}}">{{valorVII}}</td>
+  </tr>
+  <tr>
+    <td class="numeral">VIII</td>
+    <td>Receita com prestação de serviços com documento fiscal emitido</td>
+    <td class="valor {{classeVIII}}">{{valorVIII}}</td>
+  </tr>
+  <tr class="subtotal">
+    <td class="numeral">IX</td>
+    <td>Total das receitas com prestação de serviços (VII + VIII)</td>
+    <td class="valor {{classeIX}}">{{valorIX}}</td>
+  </tr>
+
+  <tr class="espaco-total"><td colspan="3"></td></tr>
+  <tr class="total">
+    <td class="numeral">X</td>
+    <td>Total geral das receitas brutas no mês (III + VI + IX)</td>
+    <td class="valor">{{valorX}}</td>
+  </tr>
+</table>
+
+<table class="assinatura">
+  <tr>
+    <td class="local">
+      <div class="rotulo">Local e data</div>
+      <div class="valor">{{localData}}</div>
+    </td>
+    <td class="linha">
+      <div class="traco">
+        <div class="nome">{{empreendedor}}</div>
+        <div class="rotulo">Assinatura do empresário</div>
+      </div>
+    </td>
+  </tr>
+</table>
+
+<div class="anexos">
+  <div class="rotulo">Encontram-se anexados a este relatório:</div>
+  <table>
+    <tr>
+      <td class="caixa"><span class="quadrado"></span></td>
+      <td>Os documentos fiscais comprobatórios das entradas de mercadorias e serviços tomados referentes ao período;</td>
+    </tr>
+    <tr>
+      <td class="caixa"><span class="quadrado"></span></td>
+      <td>As notas fiscais relativas às operações ou prestações realizadas eventualmente emitidas.</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>
